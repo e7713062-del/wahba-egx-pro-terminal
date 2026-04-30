@@ -5,7 +5,7 @@ from datetime import datetime
 import pytz
 import yfinance as yf
 
-# 1. إعدادات الصفحة
+# إعدادات الصفحة
 st.set_page_config(page_title="Wahba EGX Pro", layout="wide")
 
 st.markdown("""
@@ -21,6 +21,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # قائمة احتياطية لأهم الأسهم في حال استخدام yfinance
+# (دي اللي هتظهر لو TradingView محظورة)
 BACKUP_STOCKS = ['COMI.CA', 'FWRY.CA', 'TMGH.CA', 'SWDY.CA', 'ABUK.CA', 'EAST.CA', 'TALM.CA', 'ESRS.CA']
 
 @st.cache_data(ttl=43200)
@@ -30,13 +31,13 @@ def get_combined_report():
     results = []
     source = ""
 
-    # المحاولة الأولى: TradingView (لجلب كل الأسهم والجديد منها)
+    # المحاولة الأولى: TradingView (لجلب كل الأسهم)
     try:
         url = "https://scanner.tradingview.com/egypt/scan"
         payload = {
             "filter": [{"left": "recommendation_all", "operation": "in_range", "right": [0.1, 5]}],
             "markets": ["egypt"],
-            "columns": ["name", "close", "change", "description"],
+            "columns": ["name", "close", "change"],
             "range": [0, 500]
         }
         res = requests.post(url, json=payload, timeout=10)
@@ -44,12 +45,12 @@ def get_combined_report():
             data = res.json().get('data', [])
             for item in data:
                 d = item['d']
-                results.append({"Ticker": d[0], "Price": d[1], "Change": d[2], "Desc": d[3]})
+                results.append({"Ticker": d[0], "Price": d[1], "Change": d[2]})
             source = "TradingView (Live Scan)"
     except:
-        pass
+        pass # لو حصل بلوك، اسقط للخطوة اللي بعدها
 
-    # المحاولة الثانية: لو النتائج فاضية (حصل بلوك)، ادخل على yfinance
+    # المحاولة الثانية: لو الأولى فشلت، ادخل على yfinance (مستحيل تاخد بلوك)
     if not results:
         source = "yfinance (Backup Server)"
         for symbol in BACKUP_STOCKS:
@@ -60,7 +61,7 @@ def get_combined_report():
                     cp = h['Close'].iloc[-1]
                     pc = h['Close'].iloc[-2]
                     ch = ((cp - pc) / pc) * 100
-                    results.append({"Ticker": symbol.replace('.CA',''), "Price": cp, "Change": ch, "Desc": ""})
+                    results.append({"Ticker": symbol.replace('.CA',''), "Price": cp, "Change": ch})
             except:
                 continue
                 
@@ -87,4 +88,5 @@ if st.button("🚀 إصدار تقرير الإغلاق الذكي"):
         else:
             st.error("جميع السيرفرات مشغولة حالياً، يرجى المحاولة بعد قليل.")
 
+st.divider()
 st.caption("Wahba EGX | Hybrid Data Engine")
