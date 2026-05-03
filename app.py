@@ -14,7 +14,7 @@ today_key = now_alex.strftime("%Y-%m-%d")
 
 st.set_page_config(page_title="Wahba Intelligence | Mostafa Wahba", layout="wide")
 
-# --- 2. التصميم الاحترافي ---
+# --- 2. التصميم الاحترافي الفاخر ---
 st.markdown("""
     <style>
     .stApp { background-color: #050505; color: #e0e0e0; }
@@ -24,9 +24,10 @@ st.markdown("""
         margin-bottom: 30px; border-radius: 0 0 25px 25px;
     }
     .dev-name { color: #00ff00; font-family: 'Courier New', monospace; letter-spacing: 3px; font-size: 14px; font-weight: bold; }
-    .elite-box { 
-        background: rgba(0, 255, 0, 0.03); border: 2px solid #00ff00; 
-        padding: 25px; border-radius: 15px; margin-bottom: 25px;
+    .gold-box { 
+        background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, rgba(0,255,0,0.05) 100%);
+        border: 2px solid #ffd700; padding: 25px; border-radius: 15px; margin-bottom: 25px;
+        text-align: center; box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
     }
     .index-card { 
         padding: 20px; border: 1px solid #333; border-radius: 15px; 
@@ -36,7 +37,7 @@ st.markdown("""
     <div class="main-header">
         <div class="dev-name">ENGINEERED BY MOSTAFA WAHBA</div>
         <h1 style="margin:10px 0; color:#ffffff; font-size: 40px;">WAHBA <span style="color:#00ff00;">EGX</span> INTELLIGENCE</h1>
-        <div style="color: #888; font-size: 15px;">Advanced Quantitative Trading Terminal v3.5</div>
+        <div style="color: #888; font-size: 15px;">Elite Algorithmic Trading v4.0</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -50,19 +51,6 @@ def get_index_data(symbol, date_key):
         return {"price": analysis.indicators["close"], "change": analysis.indicators["change"]}
     except: return None
 
-@st.cache_data(ttl=7200)
-def get_macro_analysis(date_key):
-    try:
-        urls = ["https://www.mubasher.info/rss/countries/eg/news", "https://www.skynewsarabia.com/rss/v1/business.xml"]
-        news_titles = []
-        for url in urls:
-            feed = feedparser.parse(url)
-            news_titles.extend([e.title for e in feed.entries[:4]])
-        impact_keywords = ['حرب', 'فائدة', 'تضخم', 'صندوق', 'أزمة', 'دولار']
-        impact_found = [word for word in impact_keywords if any(word in title for title in news_titles)]
-        return news_titles, impact_found
-    except: return [], []
-
 @st.cache_data(ttl=86400)
 def get_live_tickers():
     try:
@@ -72,7 +60,7 @@ def get_live_tickers():
         return sorted(list(set([item['s'].split(':')[1] for item in res['data']])))
     except: return ["COMI", "FWRY", "TMGH", "SWDY", "ANFI"]
 
-@st.cache_data(ttl=14400) # فحص مشترك لمدة 4 ساعات
+@st.cache_data(ttl=14400) # ذاكرة مشتركة 4 ساعات لحماية السيرفر
 def run_intelligent_scan(date_key):
     symbols = get_live_tickers()
     results = []
@@ -83,30 +71,29 @@ def run_intelligent_scan(date_key):
 
     for i, symbol in enumerate(symbols):
         try:
-            status_text.text(f"🔍 تحليل تقني شامل للسهم {i+1}/{len(symbols)}: {symbol}")
+            status_text.text(f"🔍 تحليل فني دقيق: {symbol}")
             handler = TA_Handler(symbol=symbol, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=7)
             analysis = handler.get_analysis()
             rec = analysis.summary["RECOMMENDATION"]
             
             if "BUY" in rec:
                 rsi = analysis.indicators["RSI"]
-                # جلب مؤشرات إضافية (المتوسطات المتحركة)
-                ema10 = analysis.indicators["EMA10"]
                 adx = analysis.indicators["ADX"]
                 
+                # حساب الرقم السري للتقييم (Score)
                 score = 1
-                if "STRONG" in rec: score += 1
-                if 30 < rsi < 60: score += 1
+                if "STRONG" in rec: score += 2 # الشراء القوي يرفع السهم جداً
+                if 40 < rsi < 55: score += 2 # منطقة الـ "Sweet Spot" للزخم
+                if adx > 25: score += 1 # اتجاه صاعد قوي
                 if idx30 and idx30['change'] > 0: score += 1
                 
                 results.append({
                     "السهم": symbol, 
                     "السعر": round(analysis.indicators["close"], 2),
                     "RSI": round(rsi, 2), 
-                    "قوة الاتجاه (ADX)": round(adx, 2),
-                    "التوصية": rec.replace("_", " "),
-                    "التقييم": "⭐" * int(score),
-                    "score_val": score
+                    "قوة الاتجاه": round(adx, 2),
+                    "التقييم الرقمي": score,
+                    "النجوم": "⭐" * min(int(score), 5)
                 })
             progress_bar.progress((i + 1) / len(symbols))
             time.sleep(0.05)
@@ -116,42 +103,56 @@ def run_intelligent_scan(date_key):
     progress_bar.empty()
     return results
 
-# --- 4. العرض ---
+# --- 4. العرض الفعلي للنتائج ---
 
+# المؤشرات العامة
 c1, c2 = st.columns(2)
-for c, s, n in zip([c1, c2], ["EGX30", "EGX70EWI"], ["مؤشر EGX 30", "مؤشر EGX 70"]):
+for c, s, n in zip([c1, c2], ["EGX30", "EGX70EWI"], ["EGX 30", "EGX 70"]):
     data = get_index_data(s, today_key)
     if data:
         clr = "#00ff00" if data['change'] >= 0 else "#ff4b4b"
         c.markdown(f"""<div class="index-card">
             <div style="font-size:14px; color:#888;">{n}</div>
             <div style="color:{clr}; font-size:28px; font-weight:bold;">{data['price']:,.2f}</div>
-            <div style="color:{clr}; font-size:14px;">{data['change']:.2f}%</div>
         </div>""", unsafe_allow_html=True)
 
 st.write("")
 
-if st.button('🚀 تشغيل الماسح الذكي واستخراج المؤشرات', use_container_width=True):
+if st.button('🚀 تشغيل رادار النخبة الذهبية', use_container_width=True):
     report_data = run_intelligent_scan(today_key)
     st.session_state.final_results = pd.DataFrame(report_data)
 
 if 'final_results' in st.session_state and st.session_state.final_results is not None:
     df = st.session_state.final_results
     
-    # 1. قسم النخبة (بكل المؤشرات)
-    elite = df[df['score_val'] >= 3].sort_values(by="score_val", ascending=False)
-    if not elite.empty:
-        st.markdown("<div class='elite-box'><h3 style='margin:0; color:#00ff00;'>🏆 تحليل أسهم النخبة (إشارات قوية)</h3></div>", unsafe_allow_html=True)
-        # هنا تظهر كل المؤشرات في الجدول
-        st.dataframe(elite[['السهم', 'السعر', 'RSI', 'قوة الاتجاه (ADX)', 'التقييم']], use_container_width=True, hide_index=True)
+    # --- الوظيفة الجديدة: نخبة النخبة (أفضل سهمين) ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    golden_picks = df.sort_values(by="التقييم الرقمي", ascending=False).head(2)
     
-    # 2. القائمة العامة
-    st.markdown("### 📊 القائمة العامة للفرص المتاحة")
-    st.dataframe(df[['السهم', 'السعر', 'RSI', 'التوصية', 'التقييم']], use_container_width=True, hide_index=True)
+    if not golden_picks.empty:
+        st.markdown(f"""
+            <div class="gold-box">
+                <h2 style="color:#ffd700; margin:0;">💎 نخبة النخبة (Golden Picks)</h2>
+                <p style="color:#888;">أقوى سهمين في البورصة المصرية بناءً على التحليل الرقمي اليوم</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # عرض السهمين في كروت كبيرة
+        gc1, gc2 = st.columns(2)
+        for col, (_, row) in zip([gc1, gc2], golden_picks.iterrows()):
+            col.markdown(f"""
+                <div style="background:#1a1a1a; padding:20px; border-radius:15px; border-left:5px solid #ffd700; text-align:center;">
+                    <h1 style="color:#00ff00; margin:0;">{row['السهم']}</h1>
+                    <div style="font-size:24px; color:#fff;">{row['السعر']} EGP</div>
+                    <div style="color:#ffd700; font-size:20px;">{row['النجوم']}</div>
+                    <div style="color:#555; font-size:12px;">RSI: {row['RSI']} | ADX: {row['قوة الاتجاه']}</div>
+                </div>
+            """, unsafe_allow_html=True)
 
-st.divider()
-with st.expander("📰 نبض الاقتصاد والأخبار"):
-    news, _ = get_macro_analysis(today_key)
-    for n in news: st.write(f"• {n}")
+    st.divider()
+    
+    # باقي القوائم كما هي
+    st.markdown("### 📊 القائمة الكاملة للفرص الإيجابية")
+    st.dataframe(df[['السهم', 'السعر', 'RSI', 'النجوم']], use_container_width=True, hide_index=True)
 
-st.markdown(f"<div style='text-align:center; color:#555; font-size:11px; padding:20px;'>تم التحديث وفقاً لإغلاق الجلسة | مطور بواسطة مصطفى وهبة ©</div>", unsafe_allow_html=True)
+st.markdown(f"<div style='text-align:center; color:#444; font-size:10px; padding:30px;'>Wahba Intelligence Protocol v4.0 | حقوق المطور مصطفى وهبة محفوظة</div>", unsafe_allow_html=True)
