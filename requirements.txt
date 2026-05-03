@@ -1,5 +1,6 @@
 streamlit
-requests
+tradingview_ta
 pandas
+requests
 pytz
-yfinance
+feedparser
