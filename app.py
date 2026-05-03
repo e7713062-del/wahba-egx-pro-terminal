@@ -5,15 +5,16 @@ import requests
 import time
 from datetime import datetime
 import pytz
+import feedparser
 
 # --- 1. إعدادات الوقت (إسكندرية) ---
 egypt_tz = pytz.timezone('Africa/Cairo')
 now_alex = datetime.now(egypt_tz)
 today_key = now_alex.strftime("%Y-%m-%d")
 
-st.set_page_config(page_title="Wahba SMC Intelligence", layout="wide")
+st.set_page_config(page_title="Wahba Intelligence | Mostafa Wahba", layout="wide")
 
-# --- 2. التصميم الاحترافي الفاخر (UI/UX) ---
+# --- 2. التصميم الاحترافي الفاخر ---
 st.markdown("""
     <style>
     .stApp { background-color: #050505; color: #e0e0e0; }
@@ -35,12 +36,12 @@ st.markdown("""
     </style>
     <div class="main-header">
         <div class="dev-name">ENGINEERED BY MOSTAFA WAHBA</div>
-        <h1 style="margin:10px 0; color:#ffffff; font-size: 40px;">WAHBA <span style="color:#00ff00;">SMC</span> INTELLIGENCE</h1>
-        <div style="color: #888; font-size: 15px;">Advanced Market Structure Scanner v4.6</div>
+        <h1 style="margin:10px 0; color:#ffffff; font-size: 40px;">WAHBA <span style="color:#00ff00;">EGX</span> INTELLIGENCE</h1>
+        <div style="color: #888; font-size: 15px;">Elite Algorithmic Trading v4.0</div>
     </div>
 """, unsafe_allow_html=True)
 
-# --- 3. الدوال الذكية ومعالجة البيانات ---
+# --- 3. الدوال الذكية ---
 
 @st.cache_data(ttl=3600)
 def get_index_data(symbol, date_key):
@@ -57,9 +58,9 @@ def get_live_tickers():
         payload = {"filter": [], "options": {"lang": "en"}, "markets": ["egypt"], "symbols": {"query": {"types": []}, "tickers": []}, "columns": ["name"]}
         res = requests.post(url, json=payload, timeout=15).json()
         return sorted(list(set([item['s'].split(':')[1] for item in res['data']])))
-    except: return ["COMI", "FWRY", "TMGH", "SWDY", "EKHO", "ABUK"]
+    except: return ["COMI", "FWRY", "TMGH", "SWDY", "ANFI"]
 
-@st.cache_data(ttl=14400)
+@st.cache_data(ttl=14400) 
 def run_intelligent_scan(date_key):
     symbols = get_live_tickers()
     results = []
@@ -70,41 +71,34 @@ def run_intelligent_scan(date_key):
 
     for i, symbol in enumerate(symbols):
         try:
-            status_text.text(f"🔍 تحليل هيكل السوق: {symbol}")
+            status_text.text(f"🔍 تحليل فني دقيق: {symbol}")
             handler = TA_Handler(symbol=symbol, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=7)
             analysis = handler.get_analysis()
-            inds = analysis.indicators
             rec = analysis.summary["RECOMMENDATION"]
             
-            # --- منطق SMC الصارم ---
-            has_fvg = inds["low"] > inds["high2"] # Bullish Fair Value Gap
-            is_bos = inds["close"] > inds["high1"] # Break of Structure (Daily)
-            
             if "BUY" in rec:
-                rsi = inds["RSI"]
-                adx = inds["ADX"]
+                rsi = analysis.indicators["RSI"]
+                adx = analysis.indicators["ADX"]
+                price = analysis.indicators["close"]
                 
-                # حساب التقييم (Score) - تم توحيد الاسم هنا لـ "التقييم"
+                # --- إضافة الدعم والمقاومة ---
+                s1 = analysis.indicators["Pivot.M.Classic.S1"]
+                r1 = analysis.indicators["Pivot.M.Classic.R1"]
+                
                 score = 1
-                smc_tags = []
-                
-                if "STRONG" in rec: score += 1
-                if 40 < rsi < 60: score += 1
-                if adx > 25: score += 1
-                if has_fvg: 
-                    score += 2
-                    smc_tags.append("FVG")
-                if is_bos: 
-                    score += 1
-                    smc_tags.append("BOS")
+                if "STRONG" in rec: score += 2 
+                if 40 < rsi < 55: score += 2 
+                if adx > 25: score += 1 
                 if idx30 and idx30['change'] > 0: score += 1
                 
                 results.append({
                     "السهم": symbol, 
-                    "السعر": round(inds["close"], 2),
+                    "السعر": round(price, 2),
+                    "الدعم": round(s1, 2) if s1 else "N/A",
+                    "المقاومة": round(r1, 2) if r1 else "N/A",
                     "RSI": round(rsi, 2), 
-                    "SMC": " + ".join(smc_tags) if smc_tags else "Steady",
-                    "التقييم": score, # التأكد من تطابق الاسم
+                    "قوة الاتجاه": round(adx, 2),
+                    "التقييم الرقمي": score,
                     "النجوم": "⭐" * min(int(score), 5)
                 })
             progress_bar.progress((i + 1) / len(symbols))
@@ -115,7 +109,7 @@ def run_intelligent_scan(date_key):
     progress_bar.empty()
     return results
 
-# --- 4. عرض النتائج ---
+# --- 4. العرض الفعلي ---
 
 c1, c2 = st.columns(2)
 for c, s, n in zip([c1, c2], ["EGX30", "EGX70EWI"], ["EGX 30", "EGX 70"]):
@@ -129,21 +123,21 @@ for c, s, n in zip([c1, c2], ["EGX30", "EGX70EWI"], ["EGX 30", "EGX 70"]):
 
 st.write("")
 
-if st.button('🚀 تشغيل رادار وهبة للسيولة الذكية (SMC Scan)', use_container_width=True):
+if st.button('🚀 تشغيل رادار النخبة الذهبية', use_container_width=True):
     report_data = run_intelligent_scan(today_key)
     st.session_state.final_results = pd.DataFrame(report_data)
 
 if 'final_results' in st.session_state and st.session_state.final_results is not None:
     df = st.session_state.final_results
     
-    # تصحيح الخطأ: نستخدم "التقييم" كما عرفناه في الـ Dictionary فوق
-    golden_picks = df.sort_values(by="التقييم", ascending=False).head(2)
+    st.markdown("<br>", unsafe_allow_html=True)
+    golden_picks = df.sort_values(by="التقييم الرقمي", ascending=False).head(2)
     
     if not golden_picks.empty:
         st.markdown(f"""
             <div class="gold-box">
-                <h2 style="color:#ffd700; margin:0;">💎 صيد الحيتان (SMC Golden Picks)</h2>
-                <p style="color:#888;">أفضل الفرص بناءً على إغلاق اليوم</p>
+                <h2 style="color:#ffd700; margin:0;">💎 نخبة النخبة (Golden Picks)</h2>
+                <p style="color:#888;">أقوى فرص باختراق مستويات الدعم والزخم</p>
             </div>
         """, unsafe_allow_html=True)
         
@@ -153,17 +147,16 @@ if 'final_results' in st.session_state and st.session_state.final_results is not
                 <div style="background:#1a1a1a; padding:20px; border-radius:15px; border-left:5px solid #ffd700; text-align:center;">
                     <h1 style="color:#00ff00; margin:0;">{row['السهم']}</h1>
                     <div style="font-size:24px; color:#fff;">{row['السعر']} EGP</div>
-                    <div style="color:#ffd700; font-size:18px;">{row['النجوم']}</div>
-                    <div style="color:#00ff00; font-weight:bold;">Signal: {row['SMC']}</div>
+                    <div style="color:#888; font-size:14px; margin: 10px 0;">
+                        🛡️ دعم: {row['الدعم']} | 🎯 هدف: {row['المقاومة']}
+                    </div>
+                    <div style="color:#ffd700; font-size:20px;">{row['النجوم']}</div>
                 </div>
             """, unsafe_allow_html=True)
 
     st.divider()
-    st.markdown("### 📊 تحليل السوق الكامل (Daily Close)")
-    st.dataframe(
-        df[['السهم', 'السعر', 'SMC', 'RSI', 'النجوم']].sort_values(by="السهم"), 
-        use_container_width=True, 
-        hide_index=True
-    )
+    
+    st.markdown("### 📊 القائمة الكاملة (شاملة الدعم والمقاومة)")
+    st.dataframe(df[['السهم', 'السعر', 'الدعم', 'المقاومة', 'RSI', 'النجوم']], use_container_width=True, hide_index=True)
 
-st.markdown(f"<div style='text-align:center; color:#444; font-size:10px; padding:30px;'>Wahba Intelligence Protocol v4.6 | Designed for EGX Daily Closures</div>", unsafe_allow_html=True)
+st.markdown(f"<div style='text-align:center; color:#444; font-size:10px; padding:30px;'>Wahba Intelligence Protocol v4.0 | حقوق المطور مصطفى وهبة محفوظة</div>", unsafe_allow_html=True)
