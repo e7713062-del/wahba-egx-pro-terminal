@@ -14,7 +14,7 @@ today_key = now_alex.strftime("%Y-%m-%d")
 
 st.set_page_config(page_title="Wahba Intelligence | Mostafa Wahba", layout="wide")
 
-# --- 2. التصميم الاحترافي (نفس التصميم السابق مع لمسات الفخامة) ---
+# --- 2. التصميم الاحترافي ---
 st.markdown("""
     <style>
     .stApp { background-color: #050505; color: #e0e0e0; }
@@ -25,7 +25,7 @@ st.markdown("""
     }
     .dev-name { color: #00ff00; font-family: 'Courier New', monospace; letter-spacing: 3px; font-size: 14px; font-weight: bold; }
     .elite-box { 
-        background: rgba(0, 255, 0, 0.03); border: 1px solid #00ff00; 
+        background: rgba(0, 255, 0, 0.03); border: 2px solid #00ff00; 
         padding: 25px; border-radius: 15px; margin-bottom: 25px;
     }
     .index-card { 
@@ -36,13 +36,12 @@ st.markdown("""
     <div class="main-header">
         <div class="dev-name">ENGINEERED BY MOSTAFA WAHBA</div>
         <h1 style="margin:10px 0; color:#ffffff; font-size: 40px;">WAHBA <span style="color:#00ff00;">EGX</span> INTELLIGENCE</h1>
-        <div style="color: #888; font-size: 15px;">Global Enterprise Trading Terminal v3.0</div>
+        <div style="color: #888; font-size: 15px;">Advanced Quantitative Trading Terminal v3.5</div>
     </div>
 """, unsafe_allow_html=True)
 
-# --- 3. الدوال الذكية مع "الذاكرة المشتركة" (Global Cache) ---
+# --- 3. الدوال الذكية (الذاكرة المشتركة) ---
 
-# حفظ بيانات المؤشرات لمدة ساعة (توفيراً للطلبات)
 @st.cache_data(ttl=3600)
 def get_index_data(symbol, date_key):
     try:
@@ -51,7 +50,6 @@ def get_index_data(symbol, date_key):
         return {"price": analysis.indicators["close"], "change": analysis.indicators["change"]}
     except: return None
 
-# حفظ الأخبار العالمية لمدة ساعتين
 @st.cache_data(ttl=7200)
 def get_macro_analysis(date_key):
     try:
@@ -65,7 +63,6 @@ def get_macro_analysis(date_key):
         return news_titles, impact_found
     except: return [], []
 
-# حفظ قائمة الأسهم المتاحة لمدة يوم كامل (مهم جداً للتسويق)
 @st.cache_data(ttl=86400)
 def get_live_tickers():
     try:
@@ -75,9 +72,7 @@ def get_live_tickers():
         return sorted(list(set([item['s'].split(':')[1] for item in res['data']])))
     except: return ["COMI", "FWRY", "TMGH", "SWDY", "ANFI"]
 
-# حفظ نتائج الفحص الكامل لمدة 4 ساعات (هذا هو المفتاح لمنع الهجمات)
-# أي مستخدم يطلب الفحص خلال 4 ساعات سيحصل على نفس النتيجة فوراً
-@st.cache_data(ttl=14400)
+@st.cache_data(ttl=14400) # فحص مشترك لمدة 4 ساعات
 def run_intelligent_scan(date_key):
     symbols = get_live_tickers()
     results = []
@@ -88,32 +83,40 @@ def run_intelligent_scan(date_key):
 
     for i, symbol in enumerate(symbols):
         try:
-            status_text.text(f"🔍 فحص السهم {i+1}/{len(symbols)}: {symbol}")
+            status_text.text(f"🔍 تحليل تقني شامل للسهم {i+1}/{len(symbols)}: {symbol}")
             handler = TA_Handler(symbol=symbol, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=7)
             analysis = handler.get_analysis()
             rec = analysis.summary["RECOMMENDATION"]
             
             if "BUY" in rec:
                 rsi = analysis.indicators["RSI"]
+                # جلب مؤشرات إضافية (المتوسطات المتحركة)
+                ema10 = analysis.indicators["EMA10"]
+                adx = analysis.indicators["ADX"]
+                
                 score = 1
                 if "STRONG" in rec: score += 1
                 if 30 < rsi < 60: score += 1
                 if idx30 and idx30['change'] > 0: score += 1
                 
                 results.append({
-                    "السهم": symbol, "السعر": round(analysis.indicators["close"], 2),
-                    "RSI": round(rsi, 2), "التقييم": "⭐" * int(score),
-                    "score_val": score, "التوصية": rec.replace("_", " ")
+                    "السهم": symbol, 
+                    "السعر": round(analysis.indicators["close"], 2),
+                    "RSI": round(rsi, 2), 
+                    "قوة الاتجاه (ADX)": round(adx, 2),
+                    "التوصية": rec.replace("_", " "),
+                    "التقييم": "⭐" * int(score),
+                    "score_val": score
                 })
             progress_bar.progress((i + 1) / len(symbols))
-            time.sleep(0.1) # تأخير بسيط لتجنب الضغط على السيرفر
+            time.sleep(0.05)
         except: continue
         
     status_text.empty()
     progress_bar.empty()
     return results
 
-# --- 4. واجهة العرض الرئيسية ---
+# --- 4. العرض ---
 
 c1, c2 = st.columns(2)
 for c, s, n in zip([c1, c2], ["EGX30", "EGX70EWI"], ["مؤشر EGX 30", "مؤشر EGX 70"]):
@@ -128,29 +131,27 @@ for c, s, n in zip([c1, c2], ["EGX30", "EGX70EWI"], ["مؤشر EGX 30", "مؤش�
 
 st.write("")
 
-# زر الفحص مع خاصية الذاكرة المشتركة
-if st.button('🚀 تشغيل الماسح الذكي (نتائج الجلسة)', use_container_width=True):
-    # بمجرد ضغط أول مستخدم، يتم حفظ النتيجة للجميع لمدة 4 ساعات
+if st.button('🚀 تشغيل الماسح الذكي واستخراج المؤشرات', use_container_width=True):
     report_data = run_intelligent_scan(today_key)
     st.session_state.final_results = pd.DataFrame(report_data)
 
 if 'final_results' in st.session_state and st.session_state.final_results is not None:
     df = st.session_state.final_results
     
-    # قسم النخبة
+    # 1. قسم النخبة (بكل المؤشرات)
     elite = df[df['score_val'] >= 3].sort_values(by="score_val", ascending=False)
     if not elite.empty:
-        st.markdown("<div class='elite-box'><h3 style='margin:0; color:#00ff00;'>🏆 فرص النخبة المكتشفة</h3></div>", unsafe_allow_html=True)
-        st.table(elite[['السهم', 'السعر', 'RSI', 'التقييم']])
+        st.markdown("<div class='elite-box'><h3 style='margin:0; color:#00ff00;'>🏆 تحليل أسهم النخبة (إشارات قوية)</h3></div>", unsafe_allow_html=True)
+        # هنا تظهر كل المؤشرات في الجدول
+        st.dataframe(elite[['السهم', 'السعر', 'RSI', 'قوة الاتجاه (ADX)', 'التقييم']], use_container_width=True, hide_index=True)
     
-    # القائمة العامة
-    st.markdown("### 📊 القائمة العامة للأسهم")
+    # 2. القائمة العامة
+    st.markdown("### 📊 القائمة العامة للفرص المتاحة")
     st.dataframe(df[['السهم', 'السعر', 'RSI', 'التوصية', 'التقييم']], use_container_width=True, hide_index=True)
 
-# تذييل الصفحة
 st.divider()
-with st.expander("📰 نبض السوق والأخبار"):
-    news, tags = get_macro_analysis(today_key)
+with st.expander("📰 نبض الاقتصاد والأخبار"):
+    news, _ = get_macro_analysis(today_key)
     for n in news: st.write(f"• {n}")
 
-st.markdown(f"<div style='text-align:center; color:#555; font-size:11px; padding:20px;'>حقوق الملكية محفوظة © مصطفى وهبة | Wahba Intelligence <br> التحديثات تتم بشكل دوري لضمان استقرار الخدمة</div>", unsafe_allow_html=True)
+st.markdown(f"<div style='text-align:center; color:#555; font-size:11px; padding:20px;'>تم التحديث وفقاً لإغلاق الجلسة | مطور بواسطة مصطفى وهبة ©</div>", unsafe_allow_html=True)
