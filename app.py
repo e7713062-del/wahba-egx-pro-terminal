@@ -8,14 +8,16 @@ import pytz
 import feedparser
 import urllib.parse
 
-# --- 1. إعدادات الوقت والهوية ---
-egypt_tz = pytz.timezone('Africa/Cairo')
-now_egypt = datetime.now(egypt_tz)
+# --- 1. إعدادات الوقت والمنطقة الزمنية ---
+def get_egypt_now():
+    return datetime.now(pytz.timezone('Africa/Cairo'))
+
+now_egypt = get_egypt_now()
 today_key = now_egypt.strftime("%Y-%m-%d")
 
-st.set_page_config(page_title="Wahba Intelligence | Professional", layout="wide")
+st.set_page_config(page_title="Wahba EGX | Elite System", layout="wide")
 
-# --- 2. التصميم الفاخر (UI) ---
+# --- 2. التصميم الاحترافي (UI) ---
 st.markdown("""
     <style>
     .stApp { background-color: #050505; color: #e0e0e0; }
@@ -40,98 +42,76 @@ st.markdown("""
     </style>
     <div class="main-header">
         <h1 style="margin:0; color:#ffffff; font-size: 35px;">WAHBA <span style="color:#00ff00;">INTELLIGENCE</span></h1>
-        <div style="color: #888; font-size: 14px;">Professional Daily Database Engine v9.0</div>
+        <div style="color: #888; font-size: 14px;">Elite & Super-Elite Classification v8.5</div>
     </div>
 """, unsafe_allow_html=True)
 
-# --- 3. محرك جلب البيانات الذكي ---
+# --- 3. الدوال الأساسية ---
 
 @st.cache_data(ttl=86400)
-def get_safe_tickers(date_key):
-    """جلب الأسهم مع نظام حماية Headers"""
+def get_stable_tickers(date_key):
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
         url = "https://scanner.tradingview.com/egypt/scan"
         payload = {"filter": [{"left": "market_cap_basic", "operation": "nempty"}], "markets": ["egypt"], "columns": ["name"]}
-        res = requests.post(url, json=payload, headers=headers, timeout=20).json()
-        # تنقية الرموز من أي بيانات غير صحيحة
+        res = requests.post(url, json=payload, timeout=20).json()
         return [item['s'].split(':')[1] for item in res['data'] if not item['s'].split(':')[1].isdigit()]
     except:
         return ["COMI", "FWRY", "TMGH", "SWDY", "EKHO", "ETEL", "ABUK"]
 
 @st.cache_data(ttl=86400)
-def get_safe_news(symbol, date_key):
-    """جلب الأخبار مع معالجة الأخطاء"""
+def fetch_news_stable(symbol, date_key):
     try:
         query = urllib.parse.quote(f"سهم {symbol} البورصة المصرية")
         url = f"https://news.google.com/rss/search?q={query}&hl=ar&gl=EG&ceid=EG:ar"
         feed = feedparser.parse(url)
-        return [e.title.split(" - ")[0] for e in feed.entries[:2]] if feed.entries else ["لا توجد أخبار جوهرية حالياً."]
+        return [e.title.split(" - ")[0] for e in feed.entries[:2]] if feed.entries else ["لا توجد أخبار جوهرية."]
     except: return ["الأخبار غير متاحة."]
 
 @st.cache_data(ttl=86400, show_spinner=False)
-def perform_final_scan(date_key):
-    symbols = get_safe_tickers(date_key)
+def perform_stable_scan(date_key):
+    symbols = get_stable_tickers(date_key)
     results = []
     progress_bar = st.progress(0)
-    status_text = st.empty()
 
     for i, symbol in enumerate(symbols):
         try:
-            status_text.text(f"🔍 فحص السهم: {symbol}")
-            handler = TA_Handler(symbol=symbol, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=10)
+            handler = TA_Handler(symbol=symbol, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=12)
             analysis = handler.get_analysis()
-            
-            # الفلترة الذكية (نخبة 4 نجوم فما فوق)
+            ind = analysis.indicators
             rec = analysis.summary["RECOMMENDATION"]
+            
             if "BUY" in rec:
-                rsi = analysis.indicators.get("RSI")
-                adx = analysis.indicators.get("ADX")
-                close = analysis.indicators.get("close")
-                
-                if all(v is not None for v in [rsi, adx, close]):
+                rsi, close, adx = ind.get("RSI"), ind.get("close"), ind.get("ADX")
+                if all(v is not None for v in [rsi, close, adx]):
                     score = 0
                     if "STRONG" in rec: score += 3
                     if 45 <= rsi <= 60: score += 2
                     if adx > 22: score += 1
                     
-                    if score >= 4:
-                        news = get_safe_news(symbol, date_key)
+                    if score >= 4: # حد أدنى للنخبة
+                        news = fetch_news_stable(symbol, date_key)
                         results.append({
                             "السهم": symbol, "الإغلاق": round(close, 2),
                             "التقييم": score, "النجوم": "⭐" * min(score, 5),
                             "ADX": round(adx, 1), "أخبار": news
                         })
-            progress_bar.progress((i + 1) / len(symbols))
             time.sleep(0.05)
+            progress_bar.progress((i + 1) / len(symbols))
         except: continue
         
-    status_text.empty()
     progress_bar.empty()
-    if results:
-        df = pd.DataFrame(results)
-        # الترتيب حسب التقييم ثم قوة الاتجاه (الزخم)
-        return df.sort_values(by=["التقييم", "ADX"], ascending=[False, False])
-    return pd.DataFrame()
+    return pd.DataFrame(results).sort_values(by=["التقييم", "ADX"], ascending=[False, False]) if results else pd.DataFrame()
 
-# --- 4. واجهة العرض النهائية ---
+# --- 4. عرض النتائج بتصنيف (نخبة النخبة) و (نخبة) ---
 
-st.info(f"📊 حالة النظام: متصل | بيانات الإغلاق محفوظة لليوم: {today_key}")
+with st.spinner("جاري استحضار النخبة..."):
+    final_db = perform_stable_scan(today_key)
 
-# التحديث التلقائي أو اليدوي
-if 'final_data' not in st.session_state:
-    st.session_state.final_data = None
-
-if st.button('🚀 تحديث وأرشفة بيانات الجلسة كاملة', use_container_width=True):
-    st.session_state.final_data = perform_final_scan(today_key)
-
-# عرض النتائج
-data = st.session_state.final_data
-if data is not None and not data.empty:
+if not final_db.empty:
+    # 1. نخبة النخبة (أعلى تقييم وأعلى ADX - أول سهمين أو تلاتة)
+    st.markdown('<div class="elite-header">✨ نخبة النخبة (أقوى فرص السوق)</div>', unsafe_allow_html=True)
+    super_elite = final_db.head(2) 
     
-    # 1. قسم نخبة النخبة
-    st.markdown('<div class="elite-header">✨ نخبة النخبة (أعلى زخم شرائي)</div>', unsafe_allow_html=True)
-    super_elite = data.head(2)
     se_cols = st.columns(2)
     for idx, col in enumerate(se_cols):
         if idx < len(super_elite):
@@ -140,28 +120,33 @@ if data is not None and not data.empty:
                 st.markdown(f"""
                 <div class="gold-box">
                     <h2 style="color:#ffd700; margin:0;">{row['السهم']}</h2>
-                    <p style="font-size:22px; color:white;">{row['الإغلاق']} EGP | {row['النجوم']}</p>
-                    <hr style="border:0.1px solid #333;">
-                    {"".join([f'<div style="font-size:12px; color:#aaa; margin-bottom:5px;">🔥 {n}</div>' for n in row['أخبار']])}
+                    <p style="font-size:22px; margin:5px 0; color:white;">{row['الإغلاق']} EGP | {row['النجوم']}</p>
+                    <div style="font-size:12px; color:#888;">قوة الاتجاه الحالية: {row['ADX']}</div>
+                    <hr style="border:0.2px solid #333;">
+                    {"".join([f'<div style="font-size:12px; color:#ccc; margin-bottom:4px;">🔥 {n}</div>' for n in row['أخبار']])}
                 </div>
                 """, unsafe_allow_html=True)
 
-    # 2. قسم النخبة
     st.write("")
-    st.markdown("### 🟢 قائمة النخبة (فرص قوية)")
-    other_elite = data.iloc[2:]
+    
+    # 2. قائمة النخبة (باقي الأسهم الحاصلة على 4 نجوم)
+    st.markdown('### 🟢 قائمة النخبة (فرص مؤكدة)')
+    other_elite = final_db.iloc[2:] # باقي الجدول
+    
     if not other_elite.empty:
         for _, row in other_elite.iterrows():
             st.markdown(f"""
             <div class="standard-elite">
-                <span style="font-size:17px; color:#00ff00; font-weight:bold;">{row['السهم']}</span> | 
-                <span style="color:white;">{row['الإغلاق']} EGP</span> | 
+                <span style="font-size:18px; color:#00ff00; font-weight:bold;">{row['السهم']}</span> | 
+                <span style="color:white;">السعر: {row['الإغلاق']} EGP</span> | 
                 <span style="color:#ffd700;">{row['النجوم']}</span> | 
-                <span style="font-size:11px; color:#555;">الزخم: {row['ADX']}</span>
+                <span style="font-size:12px; color:#666;">الزخم: {row['ADX']}</span>
             </div>
             """, unsafe_allow_html=True)
-else:
-    if st.session_state.final_data is not None:
-        st.warning("لم يتم العثور على أسهم مطابقة لمعايير النخبة في هذه الجلسة.")
+    else:
+        st.info("نخبة النخبة هم المتاحون حالياً.")
 
-st.markdown(f"<div style='text-align:center; color:#333; font-size:10px; padding:40px;'>Wahba Intelligence Stable-Engine v9.0 | Cairo Time: {now_egypt.strftime('%H:%M:%S')}</div>", unsafe_allow_html=True)
+else:
+    st.warning("لا يوجد أسهم في منطقة النخبة حالياً. انتظر إغلاق اليوم للفحص الجديد.")
+
+st.markdown(f"<div style='text-align:center; padding:30px; color:#333; font-size:10px;'>Wahba EGX v8.5 | Updated: {today_key}</div>", unsafe_allow_html=True)
