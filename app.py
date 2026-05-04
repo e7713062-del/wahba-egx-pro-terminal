@@ -5,6 +5,7 @@ import requests
 import time
 from datetime import datetime
 import pytz
+import feedparser
 
 # --- 1. إعدادات الوقت (إسكندرية) ---
 egypt_tz = pytz.timezone('Africa/Cairo')
@@ -57,9 +58,9 @@ def get_live_tickers():
         payload = {"filter": [], "options": {"lang": "en"}, "markets": ["egypt"], "symbols": {"query": {"types": []}, "tickers": []}, "columns": ["name"]}
         res = requests.post(url, json=payload, timeout=15).json()
         return sorted(list(set([item['s'].split(':')[1] for item in res['data']])))
-    except: return ["COMI", "FWRY", "TMGH", "SWDY", "EKHO", "ABUK"]
+    except: return ["COMI", "FWRY", "TMGH", "SWDY", "ANFI"]
 
-@st.cache_data(ttl=14400) 
+@st.cache_data(ttl=14400) # ذاكرة مشتركة 4 ساعات لحماية السيرفر
 def run_intelligent_scan(date_key):
     symbols = get_live_tickers()
     results = []
@@ -78,23 +79,17 @@ def run_intelligent_scan(date_key):
             if "BUY" in rec:
                 rsi = analysis.indicators["RSI"]
                 adx = analysis.indicators["ADX"]
-                price = analysis.indicators["close"]
                 
-                # استخراج الدعم والمقاومة (Pivot Points)
-                s1 = analysis.indicators.get("Pivot.M.Classic.S1")
-                r1 = analysis.indicators.get("Pivot.M.Classic.R1")
-                
+                # حساب الرقم السري للتقييم (Score)
                 score = 1
-                if "STRONG" in rec: score += 2 
-                if 40 < rsi < 55: score += 2 
-                if adx > 25: score += 1 
+                if "STRONG" in rec: score += 2 # الشراء القوي يرفع السهم جداً
+                if 40 < rsi < 55: score += 2 # منطقة الـ "Sweet Spot" للزخم
+                if adx > 25: score += 1 # اتجاه صاعد قوي
                 if idx30 and idx30['change'] > 0: score += 1
                 
                 results.append({
                     "السهم": symbol, 
-                    "السعر": round(price, 2),
-                    "الدعم": round(s1, 2) if s1 else "غير محدد",
-                    "المقاومة": round(r1, 2) if r1 else "غير محدد",
+                    "السعر": round(analysis.indicators["close"], 2),
                     "RSI": round(rsi, 2), 
                     "قوة الاتجاه": round(adx, 2),
                     "التقييم الرقمي": score,
@@ -110,6 +105,7 @@ def run_intelligent_scan(date_key):
 
 # --- 4. العرض الفعلي للنتائج ---
 
+# المؤشرات العامة
 c1, c2 = st.columns(2)
 for c, s, n in zip([c1, c2], ["EGX30", "EGX70EWI"], ["EGX 30", "EGX 70"]):
     data = get_index_data(s, today_key)
@@ -124,44 +120,39 @@ st.write("")
 
 if st.button('🚀 تشغيل رادار النخبة الذهبية', use_container_width=True):
     report_data = run_intelligent_scan(today_key)
-    if report_data:
-        st.session_state.final_results = pd.DataFrame(report_data)
-    else:
-        st.session_state.final_results = pd.DataFrame() # جدول فارغ لو مفيش نتائج
+    st.session_state.final_results = pd.DataFrame(report_data)
 
-if 'final_results' in st.session_state:
+if 'final_results' in st.session_state and st.session_state.final_results is not None:
     df = st.session_state.final_results
     
-    # حماية من الـ KeyError: نتأكد إن الجدول مش فاضي وفيه عمود التقييم
-    if not df.empty and "التقييم الرقمي" in df.columns:
-        golden_picks = df.sort_values(by="التقييم الرقمي", ascending=False).head(2)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
+    # --- الوظيفة الجديدة: نخبة النخبة (أفضل سهمين) ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    golden_picks = df.sort_values(by="التقييم الرقمي", ascending=False).head(2)
+    
+    if not golden_picks.empty:
         st.markdown(f"""
             <div class="gold-box">
                 <h2 style="color:#ffd700; margin:0;">💎 نخبة النخبة (Golden Picks)</h2>
-                <p style="color:#888;">أقوى فرص باختراق مستويات الدعم والزخم بناءً على خوارزمية وهبة</p>
+                <p style="color:#888;">أقوى سهمين في البورصة المصرية بناءً على التحليل الرقمي اليوم</p>
             </div>
         """, unsafe_allow_html=True)
         
+        # عرض السهمين في كروت كبيرة
         gc1, gc2 = st.columns(2)
         for col, (_, row) in zip([gc1, gc2], golden_picks.iterrows()):
             col.markdown(f"""
                 <div style="background:#1a1a1a; padding:20px; border-radius:15px; border-left:5px solid #ffd700; text-align:center;">
                     <h1 style="color:#00ff00; margin:0;">{row['السهم']}</h1>
                     <div style="font-size:24px; color:#fff;">{row['السعر']} EGP</div>
-                    <div style="color:#888; font-size:14px; margin: 10px 0;">
-                        🛡️ دعم: {row['الدعم']} | 🎯 هدف: {row['المقاومة']}
-                    </div>
                     <div style="color:#ffd700; font-size:20px;">{row['النجوم']}</div>
+                    <div style="color:#555; font-size:12px;">RSI: {row['RSI']} | ADX: {row['قوة الاتجاه']}</div>
                 </div>
             """, unsafe_allow_html=True)
 
-        st.divider()
-        st.markdown("### 📊 القائمة الكاملة للفرص الإيجابية")
-        st.dataframe(df[['السهم', 'السعر', 'الدعم', 'المقاومة', 'RSI', 'النجوم']], use_container_width=True, hide_index=True)
-    else:
-        if st.session_state.final_results is not None:
-            st.warning("⚠️ الرادار لم يرصد أسهم تحقق شروط الشراء حالياً. جرب لاحقاً عند تغير حالة السوق.")
+    st.divider()
+    
+    # باقي القوائم كما هي
+    st.markdown("### 📊 القائمة الكاملة للفرص الإيجابية")
+    st.dataframe(df[['السهم', 'السعر', 'RSI', 'النجوم']], use_container_width=True, hide_index=True)
 
-st.markdown(f"<div style='text-align:center; color:#444; font-size:10px; padding:30px;'>Wahba Intelligence Protocol v4.0 | تم التطوير بواسطة مصطفى تامر وهبة</div>", unsafe_allow_html=True)
+st.markdown(f"<div style='text-align:center; color:#444; font-size:10px; padding:30px;'>Wahba Intelligence Protocol v4.0 | حقوق المطور مصطفى وهبة محفوظة</div>", unsafe_allow_html=True)
