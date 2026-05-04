@@ -8,157 +8,165 @@ import pytz
 import feedparser
 import urllib.parse
 
-# --- 1. إعدادات الوقت والمنطقة الزمنية ---
+# --- 1. المحرك الزمني (Cairo Time Automation) ---
 egypt_tz = pytz.timezone('Africa/Cairo')
 now_egypt = datetime.now(egypt_tz)
 today_key = now_egypt.strftime("%Y-%m-%d")
 
-st.set_page_config(page_title="Wahba Intelligence | Flexible Edition", layout="wide")
+st.set_page_config(page_title="Wahba Intelligence | Corporate Terminal", layout="wide")
 
-# --- 2. التصميم (UI) ---
+# --- 2. الواجهة المؤسسية (Corporate UI Design) ---
 st.markdown("""
     <style>
-    .stApp { background-color: #050505; color: #e0e0e0; }
-    .main-header { 
-        text-align: center; padding: 25px; border-bottom: 2px solid #00ff00; 
-        background: linear-gradient(180deg, #111 0%, #050505 100%);
-        margin-bottom: 20px; border-radius: 0 0 25px 25px;
+    .stApp { background-color: #080808; color: #ffffff; }
+    
+    /* هيدر المنصة */
+    .terminal-header {
+        text-align: center; padding: 50px 20px; 
+        background: radial-gradient(circle at center, #111 0%, #080808 100%);
+        border-bottom: 1px solid #1a1a1a; margin-bottom: 30px;
     }
-    .elite-header {
-        background: linear-gradient(90deg, #ffd700 0%, #b8860b 100%);
-        color: black; padding: 10px; border-radius: 8px; text-align: center;
-        font-weight: bold; font-size: 20px; margin-bottom: 15px;
+    .main-logo { font-size: 42px; font-weight: 900; letter-spacing: -1px; margin: 0; color: #fff; }
+    .accent { color: #00ff00; }
+    
+    /* بطاقات النخبة المتميزة */
+    .premium-card {
+        background: #111; border: 1px solid #222; border-radius: 16px;
+        padding: 30px; position: relative; transition: 0.4s;
     }
-    .standard-elite {
-        background: #111; border-left: 5px solid #00ff00; padding: 15px;
-        border-radius: 10px; margin-bottom: 10px;
+    .premium-card:hover { border-color: #00ff00; transform: translateY(-5px); }
+    .badge {
+        position: absolute; top: 15px; right: 15px; font-size: 10px;
+        background: rgba(0,255,0,0.1); color: #00ff00; padding: 4px 12px; border-radius: 4px;
     }
-    .gold-box { 
-        background: #0f0f0f; border: 2px solid #ffd700; padding: 20px; 
-        border-radius: 15px; margin-bottom: 15px; box-shadow: 0 0 15px rgba(255, 215, 0, 0.1);
+
+    /* شريط التذييل القانوني */
+    .footer-legal {
+        background: #000; border-top: 1px solid #111; padding: 40px;
+        margin-top: 60px; color: #444; font-size: 11px; text-align: justify;
+    }
+    
+    /* تخصيص الأزرار */
+    .stButton>button {
+        background: #00ff00 !important; color: #000 !important; font-weight: 800 !important;
+        border-radius: 8px !important; border: none !important; height: 50px !important;
     }
     </style>
-    <div class="main-header">
-        <h1 style="margin:0; color:#ffffff; font-size: 35px;">WAHBA <span style="color:#00ff00;">INTELLIGENCE</span></h1>
-        <div style="color: #888; font-size: 14px;">Professional Trading Database v9.2</div>
+    
+    <div class="terminal-header">
+        <p style="color: #666; font-size: 10px; letter-spacing: 6px; margin-bottom: 10px;">INSTITUTIONAL GRADE TRADING TERMINAL</p>
+        <h1 class="main-logo">WAHBA <span class="accent">INTELLIGENCE</span></h1>
     </div>
 """, unsafe_allow_html=True)
 
-# --- 3. الدوال الأساسية مع الفلتر المرن ---
+# --- 3. المحرك التقني المؤتمت (Staple Logic) ---
 
-@st.cache_data(ttl=86400)
-def get_safe_tickers(date_key):
+@st.cache_data(ttl=86400) # جلب القائمة آلياً مرة كل 24 ساعة
+def auto_fetch_tickers(date_key):
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
         url = "https://scanner.tradingview.com/egypt/scan"
-        payload = {"filter": [{"left": "market_cap_basic", "operation": "nempty"}], "markets": ["egypt"], "columns": ["name"]}
-        res = requests.post(url, json=payload, headers=headers, timeout=20).json()
+        res = requests.post(url, json={"filter": [{"left": "market_cap_basic", "operation": "nempty"}], "markets": ["egypt"], "columns": ["name"]}, timeout=25).json()
         return [item['s'].split(':')[1] for item in res['data'] if not item['s'].split(':')[1].isdigit()]
-    except:
-        return ["COMI", "FWRY", "TMGH", "SWDY", "EKHO", "ETEL", "ABUK"]
-
-@st.cache_data(ttl=86400)
-def get_safe_news(symbol, date_key):
-    try:
-        query = urllib.parse.quote(f"سهم {symbol} البورصة المصرية")
-        url = f"https://news.google.com/rss/search?q={query}&hl=ar&gl=EG&ceid=EG:ar"
-        feed = feedparser.parse(url)
-        return [e.title.split(" - ")[0] for e in feed.entries[:2]] if feed.entries else ["لا توجد أخبار جوهرية حالياً."]
-    except: return ["الأخبار غير متاحة."]
+    except: return ["COMI", "FWRY", "TMGH", "SWDY", "EKHO", "ABUK"]
 
 @st.cache_data(ttl=86400, show_spinner=False)
-def perform_final_scan(date_key):
-    symbols = get_safe_tickers(date_key)
-    results = []
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-
-    for i, symbol in enumerate(symbols):
+def institutional_engine(date_key):
+    symbols = auto_fetch_tickers(date_key)
+    database = []
+    p_bar = st.progress(0)
+    
+    for i, sym in enumerate(symbols):
         try:
-            status_text.text(f"🔍 فحص السهم: {symbol}")
-            handler = TA_Handler(symbol=symbol, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=10)
+            # استخدام فريم اليوم لإشارات مؤسسية مستقرة
+            handler = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=12)
             analysis = handler.get_analysis()
+            ind = analysis.indicators
             rec = analysis.summary["RECOMMENDATION"]
             
-            # --- الفلتر المرن الجديد ---
-            if "BUY" in rec:
-                rsi = analysis.indicators.get("RSI")
-                adx = analysis.indicators.get("ADX")
-                close = analysis.indicators.get("close")
-                
-                if all(v is not None for v in [rsi, adx, close]):
-                    score = 0
-                    if "STRONG" in rec: score += 3
-                    else: score += 2  # BUY العادي يأخذ نقطتين لفتح المجال
-                    
-                    if 40 <= rsi <= 68: score += 1 # توسيع نطاق RSI
-                    if adx > 18: score += 1         # خفض شرط قوة الاتجاه للبدايات
-                    
-                    # القبول من 3 نجوم فأكثر
-                    if score >= 3:
-                        news = get_safe_news(symbol, date_key)
-                        results.append({
-                            "السهم": symbol, "الإغلاق": round(close, 2),
-                            "التقييم": score, "النجوم": "⭐" * min(score, 5),
-                            "ADX": round(adx, 1), "أخبار": news
-                        })
-            progress_bar.progress((i + 1) / len(symbols))
-            time.sleep(0.05)
+            # خوارزمية التقييم (Point-Based Scoring)
+            score = 0
+            if "STRONG_BUY" in rec: score += 3
+            elif "BUY" in rec: score += 2
+            elif "NEUTRAL" in rec: score += 1
+            
+            rsi = ind.get("RSI")
+            if rsi and 45 <= rsi <= 68: score += 1
+            if ind.get("ADX") and ind.get("ADX") > 18: score += 1
+
+            database.append({
+                "Symbol": sym, "Price": round(ind.get("close"), 2), "Score": score,
+                "RSI": round(rsi, 1) if rsi else 0, "Stars": "⭐" * min(score, 5), "Rec": rec
+            })
         except: continue
-        
-    status_text.empty()
-    progress_bar.empty()
-    if results:
-        df = pd.DataFrame(results)
-        return df.sort_values(by=["التقييم", "ADX"], ascending=[False, False])
-    return pd.DataFrame()
-
-# --- 4. العرض ---
-
-st.info(f"📊 حالة النظام: متصل | تاريخ الجلسة المحفوظة: {today_key}")
-
-if 'final_data' not in st.session_state:
-    st.session_state.final_data = None
-
-if st.button('🚀 تحديث وأرشفة بيانات الجلسة (نظام مرن)', use_container_width=True):
-    st.session_state.final_data = perform_final_scan(today_key)
-
-data = st.session_state.final_data
-if data is not None and not data.empty:
+        p_bar.progress((i + 1) / len(symbols))
     
-    # 1. قسم نخبة النخبة (أعلى 2 في التقييم والزخم)
-    st.markdown('<div class="elite-header">✨ نخبة النخبة (الأقوى رقمياً)</div>', unsafe_allow_html=True)
-    super_elite = data.head(2)
-    se_cols = st.columns(2)
-    for idx, col in enumerate(se_cols):
-        if idx < len(super_elite):
-            row = super_elite.iloc[idx]
+    p_bar.empty()
+    if not database: return pd.DataFrame(), "Neutral"
+
+    # --- الذكاء التكيفي (Adaptive Filter) ---
+    avg_score = sum(d['Score'] for d in database) / len(database)
+    # لو السوق ميت، الكود بيفك الفلتر تلقائياً (score >= 2)
+    threshold = 4 if avg_score > 1.8 else (3 if avg_score > 1.1 else 2)
+    status = "Active/Bullish" if avg_score > 1.8 else ("Stable" if avg_score > 1.1 else "Quiet/Adaptive")
+
+    final_df = pd.DataFrame([d for d in database if d['Score'] >= threshold])
+    return final_df.sort_values(by="Score", ascending=False), status
+
+# --- 4. العرض التشغيلي ---
+
+st.markdown(f"""
+    <div style="display:flex; justify-content:space-between; padding:0 10px; color:#444; font-size:10px; font-family:monospace;">
+        <span>SYSTEM: ONLINE</span>
+        <span>MARKET: EGX</span>
+        <span>CAIRO_TIME: {now_egypt.strftime('%H:%M:%S')}</span>
+    </div>
+""", unsafe_allow_html=True)
+
+if 'final_db' not in st.session_state:
+    st.session_state.final_db = None
+
+if st.button('GENERATE INSTITUTIONAL DATA REPORT'):
+    with st.spinner("EXECUTING ADAPTIVE SCAN..."):
+        df, status = institutional_engine(today_key)
+        st.session_state.final_db = df
+        st.session_state.m_status = status
+
+# عرض النتائج
+res = st.session_state.final_db
+if res is not None and not res.empty:
+    
+    st.markdown(f"### ⚡ تقرير الأداء العالي | <small style='color:#00ff00'>{st.session_state.m_status}</small>", unsafe_allow_html=True)
+    
+    # قسم الأولوية القصوى (نخبة النخبة)
+    top_picks = res.head(2)
+    cols = st.columns(2)
+    for idx, col in enumerate(cols):
+        if idx < len(top_picks):
+            row = top_picks.iloc[idx]
             with col:
                 st.markdown(f"""
-                <div class="gold-box">
-                    <h2 style="color:#ffd700; margin:0;">{row['السهم']}</h2>
-                    <p style="font-size:22px; color:white;">{row['الإغلاق']} EGP | {row['النجوم']}</p>
-                    <hr style="border:0.1px solid #333;">
-                    {"".join([f'<div style="font-size:12px; color:#aaa; margin-bottom:5px;">🔥 {n}</div>' for n in row['أخبار']])}
+                <div class="premium-card">
+                    <div class="badge">HIGH CONVICTION</div>
+                    <h1 style="margin:0; color:#00ff00;">{row['Symbol']}</h1>
+                    <p style="font-size:28px; font-weight:bold; margin:10px 0;">{row['Price']} <span style="font-size:12px; color:#444;">EGP</span></p>
+                    <div style="letter-spacing:3px;">{row['Stars']}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
-    # 2. قسم النخبة (باقي الأسهم)
+    # قائمة النخبة الكاملة
     st.write("")
-    st.markdown("### 🟢 قائمة النخبة (فرص واعدة)")
-    other_elite = data.iloc[2:]
-    if not other_elite.empty:
-        for _, row in other_elite.iterrows():
-            st.markdown(f"""
-            <div class="standard-elite">
-                <span style="font-size:17px; color:#00ff00; font-weight:bold;">{row['السهم']}</span> | 
-                <span style="color:white;">{row['الإغلاق']} EGP</span> | 
-                <span style="color:#ffd700;">{row['النجوم']}</span> | 
-                <span style="font-size:11px; color:#555;">الزخم: {row['ADX']}</span>
-            </div>
-            """, unsafe_allow_html=True)
-else:
-    if st.session_state.final_data is not None:
-        st.warning("السوق حالياً هادئ جداً؛ لم يتم العثور على أسهم مطابقة حتى للفلتر المرن.")
+    st.markdown("#### 🔍 تفاصيل القائمة المفلترة")
+    st.dataframe(res[['Symbol', 'Price', 'Stars', 'RSI', 'Rec']], use_container_width=True, hide_index=True)
 
-st.markdown(f"<div style='text-align:center; color:#333; font-size:10px; padding:40px;'>Wahba Intelligence | Cairo Time: {now_egypt.strftime('%H:%M:%S')}</div>", unsafe_allow_html=True)
+# --- 5. إخلاء المسؤولية القانونية (Standard Legal Disclaimer) ---
+st.markdown(f"""
+    <div class="footer-legal">
+        <b>إخلاء مسؤولية قانوني (Legal Disclaimer):</b><br>
+        هذا النظام عبارة عن أداة تحليلية مؤتمتة تعتمد على بيانات فنية مستمدة من مصادر خارجية. 
+        لا تعتبر النتائج المعروضة "توصيات استثمارية" أو دعوة للبيع أو الشراء. التداول في البورصة المصرية ينطوي على مخاطر مالية كبيرة.
+        إدارة <b>WAHBA INTELLIGENCE</b> والمطور غير مسؤولين عن أي قرارات مالية يتم اتخاذها بناءً على هذا التقرير. 
+        يُنصح بمراجعة مستشار مالي معتمد قبل التنفيذ. جميع البيانات تعبر عن إغلاق الجلسة السابقة وقد تختلف مع حركة التداول اللحظية.
+        <br><br>
+        <b>© 2026 Wahba Intelligence - Institutional Assets Division.</b>
+    </div>
+""", unsafe_allow_html=True)
