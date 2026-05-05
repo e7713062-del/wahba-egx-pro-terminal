@@ -5,181 +5,126 @@ import requests
 from datetime import datetime
 import pytz
 
-# --- 1. إعدادات الوقت والهوية الرقمية ---
+# --- 1. إعدادات الوقت والثبات ---
 egypt_tz = pytz.timezone('Africa/Cairo')
 now_egypt = datetime.now(egypt_tz)
 today_key = now_egypt.strftime("%Y-%m-%d")
 
-st.set_page_config(page_title="Wahba Intelligence | Enterprise Terminal", layout="wide")
+st.set_page_config(page_title="Wahba Intelligence | Elite-X", layout="wide")
 
-# --- 2. الواجهة المؤسسية (Corporate UI Design) ---
+# --- 2. التصميم المؤسسي الثلاثي ---
 st.markdown("""
     <style>
     .stApp { background-color: #050505; color: #ffffff; }
+    .header-box { text-align: center; padding: 40px; border-bottom: 1px solid #1a1a1a; }
+    .tier-header { padding: 15px; border-radius: 10px; margin: 20px 0; text-align: center; font-weight: bold; }
     
-    /* هيدر المنصة */
-    .terminal-header {
-        text-align: center; padding: 50px 20px; 
-        background: linear-gradient(180deg, #000 0%, #050505 100%);
-        border-bottom: 1px solid #1a1a1a; margin-bottom: 30px;
-    }
-    .brand-logo { font-size: 45px; font-weight: 900; letter-spacing: -2px; margin: 0; }
-    .accent { color: #00ff00; text-shadow: 0 0 20px rgba(0, 255, 0, 0.3); }
-    .sub-brand { color: #444; font-size: 10px; letter-spacing: 5px; text-transform: uppercase; margin-top: 10px; }
+    /* ألوان التصنيفات */
+    .t1 { background: linear-gradient(90deg, #00ff00 0%, #004400 100%); color: #000; font-size: 20px; } /* سوبر نخبة */
+    .t2 { background: #111; border: 1px solid #00ff00; color: #00ff00; } /* نخبة الصعود */
+    .t3 { background: #111; border: 1px solid #444; color: #eee; } /* صاعد */
 
-    /* كروت مستويات التداول */
-    .level-container { display: flex; gap: 10px; margin-top: 15px; }
-    .level-tag {
-        flex: 1; padding: 10px; border-radius: 6px; text-align: center;
-        font-size: 12px; font-weight: bold; font-family: monospace;
-    }
-    .sup-tag { background: rgba(0, 255, 0, 0.05); color: #00ff00; border: 1px solid #00ff0033; }
-    .piv-tag { background: rgba(255, 255, 255, 0.05); color: #ffffff; border: 1px solid #ffffff22; }
-    .res-tag { background: rgba(255, 0, 0, 0.05); color: #ff4b4b; border: 1px solid #ff4b4b33; }
-
-    /* بطاقة السهم الرئيسية */
-    .asset-card {
-        background: #0a0a0a; border: 1px solid #222; border-radius: 16px;
-        padding: 25px; margin-bottom: 20px; transition: 0.3s ease;
-    }
-    .asset-card:hover { border-color: #00ff00; transform: translateY(-3px); }
-    
-    /* الأزرار */
-    .stButton>button {
-        background: #00ff00 !important; color: #000 !important; font-weight: 800 !important;
-        border-radius: 10px !important; border: none !important; height: 50px !important;
-        width: 100%; transition: 0.3s !important;
-    }
-    .stButton>button:hover { transform: scale(1.01); box-shadow: 0 5px 20px rgba(0,255,0,0.2); }
-
-    /* التذييل القانوني */
-    .legal-box {
-        background: #000; border-top: 1px solid #111; padding: 40px;
-        margin-top: 60px; color: #444; font-size: 12px; line-height: 1.8; text-align: justify;
-    }
+    .asset-card { background: #0a0a0a; border: 1px solid #222; border-radius: 12px; padding: 20px; margin-bottom: 15px; }
+    .level-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; font-size: 11px; text-align: center; }
+    .sup { color: #00ff00; } .piv { color: #aaa; } .res { color: #ff4b4b; }
     </style>
     
-    <div class="terminal-header">
-        <h1 class="brand-logo">WAHBA <span class="accent">INTELLIGENCE</span></h1>
-        <p class="sub-brand">Institutional Asset Scanner & Trading Levels</p>
+    <div class="header-box">
+        <h1 style="margin:0;">WAHBA <span style="color:#00ff00;">INTELLIGENCE</span></h1>
+        <p style="color:#444; font-size:10px; letter-spacing:3px;">ELITE TRIPLE-CLASSIFICATION SYSTEM</p>
     </div>
 """, unsafe_allow_html=True)
 
-# --- 3. المحرك التقني المستقر (The Vault Engine) ---
+# --- 3. المحرك التقني (The Elite Engine) ---
 
-@st.cache_data(ttl=86400) # أرشفة قائمة الأسهم يومياً
-def get_automated_symbols(date_key):
+@st.cache_data(ttl=86400)
+def get_egx_symbols(date_key):
     try:
         url = "https://scanner.tradingview.com/egypt/scan"
         res = requests.post(url, json={"filter": [{"left": "market_cap_basic", "operation": "nempty"}], "markets": ["egypt"], "columns": ["name"]}, timeout=20).json()
         return [item['s'].split(':')[1] for item in res['data'] if not item['s'].split(':')[1].isdigit()]
-    except: return ["COMI", "FWRY", "TMGH", "SWDY", "EKHO", "ABUK"]
+    except: return ["COMI", "FWRY", "TMGH", "SWDY", "EKHO"]
 
-@st.cache_data(ttl=86400, show_spinner=False) # أرشفة التحليل لليوم بالكامل لضمان الثبات
-def run_stable_pro_scan(date_key):
-    symbols = get_automated_symbols(date_key)
-    scanned_data = []
+@st.cache_data(ttl=86400, show_spinner=False)
+def run_triple_elite_scan(date_key):
+    symbols = get_egx_symbols(date_key)
+    results = []
     p_bar = st.progress(0)
     
     for i, sym in enumerate(symbols):
         try:
-            # الاعتماد على الإغلاق اليومي (1-Day) لثبات الإشارات
             handler = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=12)
             analysis = handler.get_analysis()
-            ind = analysis.indicators
-            rec = analysis.summary["RECOMMENDATION"]
+            ind, rec = analysis.indicators, analysis.summary["RECOMMENDATION"]
             
-            # حساب مستويات الدعم والمقاومة (Pivot Classic)
-            r1 = ind.get("Pivot.M.Classic.R1")
-            s1 = ind.get("Pivot.M.Classic.S1")
-            pivot = ind.get("Pivot.M.Classic.Middle")
+            # حساب القوة الفنية (0 إلى 10)
+            power_score = 0
+            if "STRONG_BUY" in rec: power_score += 5
+            elif "BUY" in rec: power_score += 3
             
-            # خوارزمية التقييم
-            score = 0
-            if "STRONG_BUY" in rec: score += 3
-            elif "BUY" in rec: score += 2
-            elif "NEUTRAL" in rec: score += 1
-            if ind.get("RSI") and 45 <= ind.get("RSI") <= 68: score += 1
+            rsi = ind.get("RSI")
+            if rsi and 50 <= rsi <= 70: power_score += 3 # زخم مثالي
+            if ind.get("close") > ind.get("Pivot.M.Classic.Middle"): power_score += 2 # فوق الارتكاز
 
-            scanned_data.append({
-                "Symbol": sym, "Price": round(ind.get("close"), 2), "Score": score,
-                "RSI": round(ind.get("RSI"), 1) if ind.get("RSI") else 0,
-                "Support": round(s1, 2) if s1 else 0,
-                "Pivot": round(pivot, 2) if pivot else 0,
-                "Resistance": round(r1, 2) if r1 else 0,
-                "Stars": "⭐" * min(score, 5), "Signal": rec
+            results.append({
+                "Symbol": sym, "Price": round(ind.get("close"), 2), "Power": power_score,
+                "S1": round(ind.get("Pivot.M.Classic.S1"), 2),
+                "P": round(ind.get("Pivot.M.Classic.Middle"), 2),
+                "R1": round(ind.get("Pivot.M.Classic.R1"), 2),
+                "Signal": rec
             })
         except: continue
         p_bar.progress((i + 1) / len(symbols))
     
     p_bar.empty()
-    if not scanned_data: return pd.DataFrame(), "Neutral"
-    
-    # تحديد حساسية الفلتر بناءً على حالة السوق الإجمالية
-    avg_score = sum(d['Score'] for d in scanned_data) / len(scanned_data)
-    threshold = 4 if avg_score > 1.8 else (3 if avg_score > 1.1 else 2)
-    m_status = "BULLISH 🚀" if avg_score > 1.8 else ("STABLE ⚖️" if avg_score > 1.1 else "ADAPTIVE 😴")
-    
-    final_df = pd.DataFrame([d for d in scanned_data if d['Score'] >= threshold])
-    return final_df.sort_values(by="Score", ascending=False), m_status
+    df = pd.DataFrame(results)
+    return df
 
-# --- 4. العرض والتشغيل ---
+# --- 4. عرض النتائج بالتصنيفات ---
 
-st.markdown(f"""
-    <div style="display:flex; justify-content:space-between; padding:0 10px; color:#444; font-size:10px; font-family:monospace; margin-bottom:20px;">
-        <span>SYSTEM_STATUS: ONLINE</span>
-        <span>SESSION_DATE: {today_key}</span>
-        <span>CAIRO_TIME: {now_egypt.strftime('%H:%M:%S')}</span>
-    </div>
-""", unsafe_allow_html=True)
+if 'elite_db' not in st.session_state:
+    st.session_state.elite_db = None
 
-# استرجاع البيانات المؤرشفة من الـ Session State
-if 'stable_db' not in st.session_state:
-    st.session_state.stable_db = None
+if st.button('إصدار تقرير تصنيفات النخبة'):
+    st.session_state.elite_db = run_triple_elite_scan(today_key)
 
-if st.button('GENERATE INSTITUTIONAL MARKET REPORT'):
-    with st.spinner("ARCHIVING DATA & CALCULATING LEVELS..."):
-        df, status = run_stable_pro_scan(today_key)
-        st.session_state.stable_db = df
-        st.session_state.m_status = status
-
-db = st.session_state.stable_db
+db = st.session_state.elite_db
 if db is not None and not db.empty:
-    st.markdown(f"### 💎 نخبـة السـوق المصـري | <span style='color:#00ff00'>{st.session_state.m_status}</span>", unsafe_allow_html=True)
     
-    # عرض الأسهم كبطاقات احترافية
-    for _, row in db.iterrows():
-        st.markdown(f"""
-        <div class="asset-card">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h2 style="margin:0; color:#00ff00;">{row['Symbol']}</h2>
-                <span style="color:#666; font-size:12px;">{row['Signal']}</span>
+    # 1. نخبة نخبة الصعود (Power >= 9)
+    t1 = db[db['Power'] >= 9]
+    if not t1.empty:
+        st.markdown('<div class="tier-header t1">🏆 نخبة نخبة الصعود (Super Elite)</div>', unsafe_allow_html=True)
+        for _, row in t1.iterrows():
+            st.markdown(f"""
+            <div class="asset-card" style="border-left: 5px solid #00ff00;">
+                <div style="display:flex; justify-content:space-between;"><b>{row['Symbol']}</b> <span style="color:#00ff00;">{row['Price']} EGP</span></div>
+                <div class="level-grid">
+                    <div class="sup">دعم: {row['S1']}</div> <div class="piv">ارتكاز: {row['P']}</div> <div class="res">مقاومة: {row['R1']}</div>
+                </div>
             </div>
-            <p style="font-size:28px; font-weight:bold; margin:10px 0;">{row['Price']} <small style="color:#444;">EGP</small></p>
-            <div style="margin-bottom:15px;">{row['Stars']} | RSI: {row['RSI']}</div>
-            
-            <div class="level-container">
-                <div class="level-tag sup-tag">دعم (S1): {row['Support']}</div>
-                <div class="level-tag piv-tag">ارتكاز (P): {row['Pivot']}</div>
-                <div class="level-tag res-tag">مقاومة (R1): {row['Resistance']}</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # الجدول التفصيلي للبيانات
-    st.write("")
-    st.markdown("#### 📋 مـلخص البيـانات الفنيـة")
-    st.dataframe(db[['Symbol', 'Price', 'Stars', 'Support', 'Pivot', 'Resistance']], use_container_width=True, hide_index=True)
+            """, unsafe_allow_html=True)
 
-# --- 5. إخلاء المسؤولية القانوني (The Disclaimer) ---
-st.markdown(f"""
-    <div class="legal-box">
-        <b>إخلاء مسؤولية قانوني (Institutional Disclaimer):</b><br>
-        تعد منصة <b>WAHBA INTELLIGENCE</b> أداة فنية مؤتمتة تقوم بتحليل إحصائي لإغلاقات الجلسات اليومية في البورصة المصرية. 
-        النتائج الواردة، بما في ذلك مستويات الدعم والمقاومة، هي بيانات مؤرشفة بناءً على مؤشرات تقنية رياضية ولا تعد توصيات مباشرة بالشراء أو البيع. 
-        <br><br>
-        الاستثمار في الأوراق المالية ينطوي على مخاطر عالية، وقرار التداول هو مسؤولية المستخدم الفردية بالكامل. 
-        لا تتحمل المنصة أو مطورها أي مسؤولية عن أي خسائر مالية ناتجة عن استخدام هذه البيانات. 
-        يُنصح دائماً بمراجعة مستشار مالي مرخص قبل اتخاذ أي خطوة استثمارية. جميع الحقوق محفوظة © 2026.
-    </div>
-""", unsafe_allow_html=True)
+    # 2. نخبة الصعود (Power 6-8)
+    t2 = db[(db['Power'] >= 6) & (db['Power'] < 9)]
+    if not t2.empty:
+        st.markdown('<div class="tier-header t2">💎 نخبة الصعود (Elite)</div>', unsafe_allow_html=True)
+        for _, row in t2.iterrows():
+            st.markdown(f"""
+            <div class="asset-card">
+                <div style="display:flex; justify-content:space-between;"><b>{row['Symbol']}</b> <span>{row['Price']} EGP</span></div>
+                <div class="level-grid">
+                    <div class="sup">دعم: {row['S1']}</div> <div class="piv">ارتكاز: {row['P']}</div> <div class="res">مقاومة: {row['R1']}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # 3. تصنيف صاعد (Power 3-5)
+    t3 = db[(db['Power'] >= 3) & (db['Power'] < 6)]
+    if not t3.empty:
+        st.markdown('<div class="tier-header t3">📈 تصنيف صاعد (Trending)</div>', unsafe_allow_html=True)
+        for _, row in t3.iterrows():
+            st.markdown(f"**{row['Symbol']}** | السعر: {row['Price']} | المقاومة: {row['R1']}")
+
+# --- 5. إخلاء المسؤولية ---
+st.markdown("<div style='margin-top:50px; color:#333; font-size:10px; text-align:center;'>جميع البيانات مؤرشفة لليوم لضمان الثبات. القرار الاستثماري مسؤوليتك. © 2026 Wahba Intelligence</div>", unsafe_allow_html=True)
