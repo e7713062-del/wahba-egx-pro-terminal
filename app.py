@@ -5,142 +5,159 @@ import numpy as np
 import requests
 from datetime import datetime, date
 from concurrent.futures import ThreadPoolExecutor
+import sqlite3
+import os
 
 # ==========================================
-# 1. CORE CONFIGURATION
+# 1. IDENTITY & CONFIG
 # ==========================================
 CORP_NAME = "WAHBA QUANTITATIVE SOLUTIONS"
 FOUNDER = "MUSTAFA TAMER"
 GOLD_COLOR = "#D4AF37"
+ACCENT_GREEN = "#00FFAA"
+
+# إعداد الصفحة
+st.set_page_config(page_title=CORP_NAME, layout="wide")
 
 # ==========================================
-# 2. DATA ENGINE (Ultra-Stable)
+# 2. DATABASE ENGINE (للحفظ التلقائي الدائم)
 # ==========================================
-@st.cache_data(ttl=86400)
-def get_market_data(_update_trigger):
+def init_db():
+    conn = sqlite3.connect('market_archive.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS signals 
+                 (date TEXT, symbol TEXT, price REAL, target REAL, roi REAL, rsi REAL)''')
+    conn.commit()
+    conn.close()
+
+def save_to_db(df, current_date):
+    conn = sqlite3.connect('market_archive.db')
+    # التأكد أننا لا نحفظ بيانات نفس اليوم مرتين
+    existing_data = pd.read_sql(f"SELECT * FROM signals WHERE date='{current_date}'", conn)
+    if existing_data.empty:
+        df['date'] = current_date
+        df.to_sql('signals', conn, if_exists='append', index=False)
+    conn.close()
+
+def get_history_from_db():
+    if os.path.exists('market_archive.db'):
+        conn = sqlite3.connect('market_archive.db')
+        df = pd.read_sql("SELECT * FROM signals ORDER BY date DESC", conn)
+        conn.close()
+        return df
+    return pd.DataFrame()
+
+# ==========================================
+# 3. DATA FETCHING (التنفيذ التلقائي)
+# ==========================================
+@st.cache_data(ttl=3600)
+def fetch_and_process_daily():
     try:
-        # جلب قائمة الرموز من مصر
         url = "https://scanner.tradingview.com/egypt/scan"
         payload = {"filter": [{"left": "market_cap_basic", "operation": "nempty"}],
                    "markets": ["egypt"], "columns": ["name"]}
-        res = requests.post(url, json=payload, timeout=10).json()
-        symbols = [i['s'].split(':')[1] for i in res['data'] if ":" in i['s']]
+        res = requests.post(url, json=payload, timeout=15).json()
+        symbols = [i['s'].split(':')[1] for i in res['data'][:70] if ":" in i['s']]
         
         results = []
-        def fetch_data(s):
+        def process(s):
             try:
-                h = TA_Handler(symbol=s, screener="egypt", exchange="EGX", 
-                               interval=Interval.INTERVAL_1_DAY, timeout=5)
+                h = TA_Handler(symbol=s, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=7)
                 ind = h.get_analysis().indicators
-                # حساب الأهداف مباشرة لتقليل المعالجة لاحقاً
-                price = ind["close"]
-                pivot = ind["Pivot.M.Classic.Middle"]
-                r1 = ind["Pivot.M.Classic.R1"]
-                target = np.round(pivot + (r1 - pivot) * 1.618, 2)
-                roi = np.round(((target - price) / price) * 100, 2)
-                
-                return {
-                    "Symbol": s, "Price": price, "Target": target, 
-                    "ROI %": roi, "RSI": ind["RSI"], "Volume": ind["volume"]
-                }
+                p, r1 = ind.get("Pivot.M.Classic.Middle", 0), ind.get("Pivot.M.Classic.R1", 0)
+                if p == 0: return None
+                target = np.round(p + (r1 - p) * 1.618, 2)
+                roi = np.round(((target - ind["close"]) / ind["close"]) * 100, 2)
+                return {"symbol": s, "price": ind["close"], "target": target, "roi": roi, "rsi": ind.get("RSI", 0)}
             except: return None
 
-        with ThreadPoolExecutor(max_workers=15) as executor:
-            results = list(filter(None, executor.map(fetch_data, symbols)))
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            results = list(filter(None, executor.map(process, symbols)))
         
-        return pd.DataFrame(results)
+        df = pd.DataFrame(results)
+        return df
     except:
         return pd.DataFrame()
 
 # ==========================================
-# 3. LUXURY UI DESIGN
+# 4. LUXURY UI CSS
 # ==========================================
-st.set_page_config(page_title=CORP_NAME, layout="wide")
-
-# Custom CSS for Dark Luxury Theme
 st.markdown(f"""
 <style>
-    [data-testid="stAppViewContainer"] {{ background-color: #050505; color: #eee; }}
-    .main-header {{ border-bottom: 2px solid {GOLD_COLOR}; padding-bottom: 10px; margin-bottom: 30px; }}
-    .luxury-card {{
-        background: #111; border: 1px solid #222; padding: 20px; border-radius: 5px;
-        border-left: 3px solid {GOLD_COLOR}; margin-bottom: 15px;
-    }}
-    .stTabs [data-baseweb="tab-list"] {{ gap: 24px; }}
-    .stTabs [data-baseweb="tab"] {{ color: #888; font-weight: bold; }}
-    .stTabs [aria-selected="true"] {{ color: {GOLD_COLOR} !important; border-bottom-color: {GOLD_COLOR} !important; }}
+    [data-testid="stAppViewContainer"] {{ background-color: #050505; color: #eee; font-family: sans-serif; }}
+    .header-box {{ border-bottom: 1px solid #1A1A1A; padding: 20px 0; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }}
+    .status-badge {{ display: flex; align-items: center; background: rgba(0, 255, 170, 0.1); padding: 5px 15px; border-radius: 50px; border: 1px solid {ACCENT_GREEN}; }}
+    .status-dot {{ height: 10px; width: 10px; background-color: {ACCENT_GREEN}; border-radius: 50%; display: inline-block; margin-right: 10px; box-shadow: 0 0 10px {ACCENT_GREEN}; animation: pulse 2s infinite; }}
+    @keyframes pulse {{ 0% {{ opacity: 0.5; }} 50% {{ opacity: 1; }} 100% {{ opacity: 0.5; }} }}
+    .signal-card {{ background: #0F0F0F; border: 1px solid #222; padding: 20px; border-radius: 5px; border-left: 3px solid {GOLD_COLOR}; }}
 </style>
 """, unsafe_allow_html=True)
 
+# ==========================================
+# 5. MAIN APP
+# ==========================================
 def main():
-    # Header Section
+    init_db()
+    today_str = str(date.today())
+
+    # Header
     st.markdown(f"""
-    <div class="main-header">
-        <h1 style="margin:0; color:{GOLD_COLOR}; letter-spacing:-1px;">WAHBA <span style="font-weight:300; color:white;">PRO TERMINAL</span></h1>
-        <p style="margin:0; color:#666; font-size:12px;">INSTITUTIONAL QUANTITATIVE ENGINE | {FOUNDER}</p>
+    <div class="header-box">
+        <div>
+            <h1 style="margin:0; color:white;">WAHBA <span style="color:{GOLD_COLOR};">PLATINUM</span></h1>
+            <p style="margin:0; color:#555; font-size:12px;">AUTOMATED QUANTITATIVE ARCHIVE | {FOUNDER}</p>
+        </div>
+        <div class="status-badge">
+            <span class="status-dot"></span>
+            <span style="color:{ACCENT_GREEN}; font-size:12px; font-weight:bold;">AUTO-SYNC ACTIVE</span>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Sync Data
-    with st.spinner("Accessing Institutional Data Feed..."):
-        df = get_market_data(str(date.today()))
+    # المزامنة والحفظ التلقائي
+    with st.spinner("Processing daily closures and archiving..."):
+        df_today = fetch_and_process_daily()
+        if not df_today.empty:
+            save_to_db(df_today, today_str)
 
-    if not df.empty:
-        # Metrics Overview
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Market Assets", len(df))
-        m2.metric("Top Opportunity", f"{df['ROI %'].max()}%")
-        m3.metric("Status", "STABLE", delta="LIVE")
+    # عرض البيانات
+    tab1, tab2, tab3 = st.tabs(["🎯 TODAY'S SIGNALS", "📂 HISTORICAL ARCHIVE", "⚙️ SYSTEM"])
 
-        tab1, tab2 = st.tabs(["🎯 ALPHA SIGNALS", "📊 MARKET ARCHIVE"])
-
-        with tab1:
+    with tab1:
+        if not df_today.empty:
             st.markdown("<br>", unsafe_allow_html=True)
-            # اختيار أعلى 12 فرصة ربحية
-            top_df = df[df['ROI %'] > 0].sort_values(by='ROI %', ascending=False).head(12)
-            
-            for i in range(0, len(top_df), 3):
+            top = df_today.sort_values(by='roi', ascending=False).head(12)
+            for i in range(0, len(top), 3):
                 cols = st.columns(3)
-                for idx, row in enumerate(top_df.iloc[i:i+3].to_dict(orient='records')):
+                for idx, row in enumerate(top.iloc[i:i+3].to_dict(orient='records')):
                     with cols[idx]:
                         st.markdown(f"""
-                        <div class="luxury-card">
-                            <div style="display:flex; justify-content:space-between;">
-                                <span style="font-weight:bold; letter-spacing:1px;">{row['Symbol']}</span>
-                                <span style="color:#00ffaa; font-weight:bold;">+{row['ROI %']}%</span>
-                            </div>
-                            <div style="font-size:24px; font-weight:bold; margin:10px 0;">{row['Target']} <small style="font-size:12px; color:#555;">EGP</small></div>
-                            <div style="color:#666; font-size:11px;">Current: {row['Price']} | RSI: {int(row['RSI'])}</div>
+                        <div class="signal-card">
+                            <div style="display:flex; justify-content:space-between;"><b>{row['symbol']}</b> <span style="color:{ACCENT_GREEN}">+{row['roi']}%</span></div>
+                            <div style="font-size:28px; font-weight:bold; margin:10px 0;">{row['target']} <small style="font-size:12px;">EGP</small></div>
+                            <div style="color:#444; font-size:11px;">RSI: {int(row['rsi'])} | LTP: {row['price']}</div>
                         </div>
                         """, unsafe_allow_html=True)
+        else:
+            st.warning("Waiting for market data...")
 
-        with tab2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            # عرض الجدول بطريقة ذكية وحديثة (تغني عن الـ Styler المعقد)
-            st.dataframe(
-                df,
-                column_config={
-                    "Symbol": "Ticker",
-                    "Price": st.column_config.NumberColumn("LTP", format="%.2f"),
-                    "Target": st.column_config.NumberColumn("Target", format="%.2f"),
-                    "ROI %": st.column_config.ProgressColumn("Potential ROI", min_value=0, max_value=float(df['ROI %'].max()), format="%f%%"),
-                    "RSI": st.column_config.NumberColumn("RSI", format="%d"),
-                    "Volume": st.column_config.NumberColumn("Vol", format="%d")
-                },
-                hide_index=True,
-                use_container_width=True,
-                height=500
-            )
+    with tab2:
+        st.markdown("### 🏛️ Full Market Database")
+        history_df = get_history_from_db()
+        if not history_df.empty:
+            # فلتر لاختيار التاريخ
+            available_dates = history_df['date'].unique()
+            selected_date = st.selectbox("Select Trading Session", available_dates)
+            filtered_history = history_df[history_df['date'] == selected_date]
+            st.dataframe(filtered_history, use_container_width=True, hide_index=True)
+        else:
+            st.info("Archive is empty. Database will grow every day after market close.")
 
-    else:
-        st.error("Data synchronization failed. Please refresh.")
-
-    # Footer
-    st.markdown(f"""
-    <div style="text-align:center; padding:50px; color:#222; font-size:10px; letter-spacing:2px;">
-        © 2024 {CORP_NAME} | PRIVATE & CONFIDENTIAL
-    </div>
-    """, unsafe_allow_html=True)
+    with tab3:
+        st.info(f"Database File: market_archive.db\nLocation: {os.getcwd()}\nStatus: Operational")
+        if st.button("Clear Cache"):
+            st.cache_data.clear()
+            st.rerun()
 
 if __name__ == "__main__":
     main()
