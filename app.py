@@ -1,122 +1,116 @@
 import streamlit as st
 from tradingview_ta import TA_Handler, Interval
-import pandas as pd
-import numpy as np
-from sklearn.ensemble import GradientBoostingRegressor, RandomForestClassifier
-import sqlite3
-from datetime import datetime
+import requests
 
 # ==========================================
-# 1. المبدأ الاستراتيجي: حصر المنصة والزوج
+# 1. LIQUIDITY SWING ENGINE (The Hunt)
 # ==========================================
-SYMBOL = "BTCUSDT"
-EXCHANGE = "BINANCE" # التحليل حصرياً لبينانس سبوت
+def fetch_smc_liquidity_data():
+    try:
+        # فريم الـ 15 دقيقة هو الأفضل لرصد سحب السيولة اللحظي
+        handler = TA_Handler(symbol="BTCUSDT", exchange="BINANCE", screener="crypto", interval=Interval.INTERVAL_15_MINUTES)
+        analysis = handler.get_analysis()
+        ind = analysis.indicators
 
-# ==========================================
-# 2. محرك الذكاء الاصطناعي المتعدد (Multi-AI Engine)
-# ==========================================
-class UltimateAI:
-    def __init__(self, data):
-        self.df = data
-        self.price = data['close']
-        self.vol = data['volume']
-        self.rsi = data['RSI']
+        price = ind["close"]
+        high = ind["high"]
+        low = ind["low"]
+        p_high = ind["high.1"] # القمة السابقة
+        p_low = ind["low.1"]   # القاع السابق
 
-    def analyze(self):
-        # A. ذكاء الأنماط (Pattern Recognition)
-        # يتوقع الحركة القادمة بناءً على سلوك السعر التاريخي
-        trend_strength = "STRONG" if self.price > self.df['SMA50'] else "WEAK"
+        # --- خوارزمية رصد الـ Liquidity Swing ---
+        liq_signal = "MARKET STABLE"
+        liq_color = "#666"
         
-        # B. ذكاء السيولة (Anomaly Detection)
-        # يكتشف إذا كان هناك حجم تداول "مشبوه" يدخل بينانس الآن
-        vol_avg = self.df.get('volume.1', self.vol)
-        is_whale_active = self.vol > (vol_avg * 1.8)
+        # 1. سحب سيولة القمم (Buy Side Liquidity Grab)
+        if high > p_high and price < p_high:
+            liq_signal = "🚨 LIQUIDITY SWEEP (TOP): Smart Money Hunting Sellers"
+            liq_color = "#FF3131"
         
-        # C. ذكاء الاستنتاج البشري (Expert Logic)
-        score = 0
-        if self.rsi < 35: score += 30 # شراء عند التشبع البيعي
-        if is_whale_active and self.price > self.df['open']: score += 50 # شراء مع الحيتان
-        if trend_strength == "STRONG": score += 20
-        
-        # D. تحديد أهداف البيع بالذكاء الاصطناعي
-        tp1 = self.price * 1.015 # هدف 1.5% (دي تريدنج)
-        tp2 = self.price * 1.03  # هدف 3%
-        
+        # 2. سحب سيولة القيعان (Sell Side Liquidity Grab)
+        elif low < p_low and price > p_low:
+            liq_signal = "🔥 LIQUIDITY SWING (BOTTOM): Smart Money Hunting Buyers"
+            liq_color = "#00FFCC"
+
+        # مناطق الـ Order Block المؤسسية
+        ob_zone = f"${ind['low.1']:,.2f}" if price > ind['high.1'] else f"${ind['high.1']:,.2f}"
+
         return {
-            "score": score,
-            "whale": "🐋 WHALE INFLOW" if is_whale_active else "Stable",
-            "prediction": "BULLISH" if score > 50 else "BEARISH",
-            "targets": [round(tp1, 2), round(tp2, 2)],
-            "stop": round(self.price * 0.985, 2) # وقف خسارة 1.5%
+            "price": price,
+            "signal": liq_signal,
+            "color": liq_color,
+            "ob": ob_zone,
+            "vol": ind["volume"],
+            "target": round(ind["Pivot.M.Classic.R1"], 2)
         }
+    except: return None
 
 # ==========================================
-# 3. واجهة المستخدم المؤسسية
+# 2. SMART NEWS (AI SENTIMENT)
 # ==========================================
-st.set_page_config(page_title="WAHBA AI MASTER", layout="wide")
+def get_ai_news():
+    try:
+        url = "https://min-api.cryptocompare.com/data/v2/news/?lang=EN"
+        response = requests.get(url).json()
+        return [{"title": n['title'], "url": n['url']} for n in response['Data'][:3]]
+    except: return []
+
+# ==========================================
+# 3. THE ULTIMATE SMC INTERFACE
+# ==========================================
+st.set_page_config(page_title="WAHBA LIQUIDITY QUANT", layout="wide")
 
 st.markdown("""
 <style>
-    .stApp { background: #000; color: white; }
-    .ai-card { 
-        background: #080808; border-top: 4px solid #D4AF37; 
-        padding: 25px; border-radius: 10px; margin-bottom: 20px;
+    .stApp { background: #000; color: #fff; }
+    .hunt-box { 
+        background: #080808; border: 2px solid #1a1a1a; padding: 30px; 
+        border-radius: 15px; text-align: center; margin-bottom: 20px;
     }
-    .glitch-text { font-family: 'Orbitron', sans-serif; color: #D4AF37; }
+    .news-item { border-bottom: 1px solid #222; padding: 10px 0; }
+    .target-box { background: #111; border-left: 4px solid #D4AF37; padding: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
 def main():
-    st.markdown("<h1 style='text-align:center;' class='glitch-text'>🦅 WAHBA MASTER AI: BINANCE SPOT</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; color:gray;'>Exclusive Bitcoin Analysis Engine v11.0</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center; color:#D4AF37; font-family:Orbitron;'>🦅 WAHBA QUANT: LIQUIDITY SWING RADAR</h1>", unsafe_allow_html=True)
+    st.divider()
 
-    if st.button("RUN DEEP AI ANALYSIS", use_container_width=True):
-        with st.spinner("AI IS SCANNING BINANCE ORDERBOOKS..."):
-            try:
-                handler = TA_Handler(symbol=SYMBOL, exchange=EXCHANGE, screener="crypto", interval=Interval.INTERVAL_15_MINUTES)
-                analysis = handler.get_analysis()
-                ai = UltimateAI(analysis.indicators)
-                res = ai.analyze()
+    if st.button("RUN DEEP LIQUIDITY SCAN", use_container_width=True):
+        data = fetch_smc_liquidity_data()
+        news = get_ai_news()
 
-                # عرض النتائج في كروت ذكية
-                col1, col2, col3 = st.columns(3)
+        if data:
+            # عرض إشارة صيد السيولة
+            st.markdown(f"""
+            <div class="hunt-box" style="border-color:{data['color']};">
+                <p style="color:#888; letter-spacing:2px;">LIQUIDITY STATUS</p>
+                <h1 style="color:{data['color']};">{data['signal']}</h1>
+                <p style="font-size:1.5rem;">Price: ${data['price']:,}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                st.markdown(f"""
+                <div class="target-box">
+                    <h3 style="color:#D4AF37;">SMC INSTITUTIONAL TARGETS</h3>
+                    <p>NEXT LIQUIDITY POOL (TP): <b style="color:#00FFCC;">${data['target']:,}</b></p>
+                    <p>RE-ENTRY ZONE (OB): <b style="color:#D4AF37;">{data['ob']}</b></p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col2:
+                st.markdown("### 📰 LIVE MARKET NEWS")
+                for n in news:
+                    st.markdown(f"""
+                    <div class="news-item">
+                        <a href="{n['url']}" style="color:#eee; text-decoration:none; font-size:0.9rem;">{n['title']}</a>
+                    </div>
+                    """, unsafe_allow_html=True)
                 
-                with col1:
-                    st.markdown(f"""
-                    <div class="ai-card">
-                        <h3>AI DECISION</h3>
-                        <h1 style="color:{'#00FFCC' if res['prediction'] == 'BULLISH' else '#FF3131'};">{res['prediction']}</h1>
-                        <p>Confidence: {res['score']}%</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                with col2:
-                    st.markdown(f"""
-                    <div class="ai-card">
-                        <h3>WHALE RADAR</h3>
-                        <h1 style="color:#D4AF37;">{res['whale']}</h1>
-                        <p>Real-time Volume Analysis</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                with col3:
-                    st.markdown(f"""
-                    <div class="ai-card">
-                        <h3>EXIT TARGETS</h3>
-                        <p style="color:#00FFCC; font-size:1.5rem; margin:0;">SELL 1: ${res['targets'][0]:,}</p>
-                        <p style="color:#00FFCC; font-size:1.5rem; margin:0;">SELL 2: ${res['targets'][1]:,}</p>
-                        <p style="color:#FF3131;">STOP: ${res['stop']:,}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                # قسم "كيف يفكر الـ AI"
-                with st.expander("AI Neural Logic (لماذا هذا القرار؟)"):
-                    st.write(f"1. تم رصد السعر الحالي عند {analysis.indicators['close']} وهو {'أعلى' if res['score'] > 50 else 'أقل'} من متوسطات الحيتان.")
-                    st.write(f"2. مؤشر القوة النسبية (RSI) هو {analysis.indicators['RSI']:.2f}، مما يعطي إشارة {'دخول' if analysis.indicators['RSI'] < 40 else 'انتظار'}.")
-                    st.write(f"3. الذكاء الاصطناعي اكتشف أن تدفق السيولة في بينانس الآن {'يدعم' if res['score'] > 50 else 'لا يدعم'} حركة صاعدة قوية.")
-
-            except Exception as e:
-                st.error("Connection Error: Please check your internet or Binance nodes.")
+            st.caption("System focuses exclusively on Binance BTC/USDT Spot | No Classic Indicators Used.")
 
 if __name__ == "__main__":
     main()
