@@ -3,4 +3,5 @@ tradingview_ta
 pandas
 requests
 pytz
-feedparser
+numpy
+scikit-learn
