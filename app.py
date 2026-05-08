@@ -8,25 +8,20 @@ from datetime import datetime
 import pytz
 
 # ==========================================
-# 1. LEGAL & IP TERMINAL (Mustafa Tamer)
+# 1. LEGAL & LUXURY CONFIG (Mustafa Tamer)
 # ==========================================
 OWNER = "MUSTAFA TAMER"
 SYSTEM_NAME = "WAHBA EGX"
-LEGAL_EN = f"""
-LEGAL NOTICE: © {datetime.now().year} {OWNER}. All Rights Reserved. 
-This terminal and its underlying logic are protected under international intellectual property treaties. 
-Any attempt to decompile, scrape, or replicate the algorithms of {SYSTEM_NAME} will result in legal action.
-"""
-LEGAL_AR = f"""
-إخطار قانوني: جميع الحقوق محفوظة © {datetime.now().year} للمالك {OWNER}.
-نظام {SYSTEM_NAME} وخوارزمياته محمية بموجب قوانين الملكية الفكرية الدولية.
-أي محاولة لفك شفرة الكود أو استخراج البيانات أو تقليد المنطق الحسابي ستعرض صاحبها للملاحقة القانونية الصارمة.
-"""
+STATION_ID = "EXECUTIVE TERMINAL V3.0"
+
+LEGAL_EN = f"© {datetime.now().year} {OWNER}. PRESTIGE EDITION. PROPRIETARY QUANTUM ALGORITHMS PROTECTED BY INTERNATIONAL LAW."
+LEGAL_AR = f"حقوق الملكية © {datetime.now().year} للمالك {OWNER}. النسخة الفاخرة. الخوارزميات محمية بموجب قوانين الملكية الفكرية الدولية."
 
 # ==========================================
-# 2. DATA ARCHITECTURE
+# 2. DATA ARCHITECTURE (Institutional Grade)
 # ==========================================
-def get_institutional_data():
+@st.cache_data(ttl=600)
+def get_market_intelligence():
     try:
         scanner_url = "https://scanner.tradingview.com/egypt/scan"
         payload = {"filter": [{"left": "market_cap_basic", "operation": "nempty"}],
@@ -35,7 +30,7 @@ def get_institutional_data():
         symbols = [i['s'].split(':')[1] for i in res['data'] if ":" in i['s']]
         
         results = []
-        for sym in symbols[:40]: 
+        for sym in symbols[:30]: # Focus on high-quality assets
             try:
                 h = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", 
                                interval=Interval.INTERVAL_1_DAY, timeout=5)
@@ -49,60 +44,86 @@ def get_institutional_data():
     except: return pd.DataFrame()
 
 # ==========================================
-# 3. ADVANCED UI (New Typography & Layout)
+# 3. LUXURY UI DESIGN (CSS)
 # ==========================================
-st.set_page_config(page_title=f"{SYSTEM_NAME} | {OWNER}", layout="wide")
+st.set_page_config(page_title=f"{SYSTEM_NAME} LUXURY | {OWNER}", layout="wide")
 
-# تغيير الخطوط لخطوط مؤسسية قوية
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Montserrat:wght@400;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;700&family=Cinzel:wght@400;700&family=Montserrat:wght@200;400;800&display=swap');
     
-    html, body, [class*="css"] {
-        font-family: 'Cairo', 'Montserrat', sans-serif;
-        background-color: #050505;
-        color: #ffffff;
+    /* Luxury Dark Background */
+    .stApp {
+        background: radial-gradient(circle at top, #1a1a1a 0%, #050505 100%);
+        color: #e0e0e0;
     }
 
+    /* Fonts */
+    h1, h2, .luxury-text { font-family: 'Cinzel', serif; letter-spacing: 3px; }
+    body, div, p { font-family: 'Montserrat', 'Cairo', sans-serif; }
+
+    /* Header Styling */
     .main-header {
-        background: #000;
-        border-bottom: 2px solid #D4AF37;
-        padding: 60px 20px;
         text-align: center;
-        margin-bottom: 50px;
+        padding: 80px 20px;
+        border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+        margin-bottom: 60px;
     }
 
-    .legal-alert {
+    .gold-accent {
+        color: #D4AF37;
+        text-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+    }
+
+    /* Luxury Card (Glassmorphism) */
+    .luxury-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(212, 175, 55, 0.15);
+        padding: 40px;
+        border-radius: 0px; /* Sharp edges for institutional look */
+        margin-bottom: 30px;
+        transition: 0.5s all ease;
+        backdrop-filter: blur(10px);
+    }
+
+    .luxury-card:hover {
         background: rgba(212, 175, 55, 0.05);
-        border: 1px solid #D4AF37;
-        padding: 30px;
-        border-radius: 5px;
-        margin-bottom: 40px;
+        border-color: #D4AF37;
+        transform: scale(1.02);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .target-box {
+        border-top: 1px solid #D4AF37;
+        border-bottom: 1px solid #D4AF37;
+        padding: 20px 0;
+        margin: 25px 0;
         text-align: center;
     }
 
-    .quant-card {
-        background: #0d0d0d;
-        border: 1px solid #1a1a1a;
-        padding: 30px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        transition: 0.3s;
+    /* Custom Button */
+    .stButton>button {
+        background: transparent;
+        border: 1px solid #D4AF37;
+        color: #D4AF37;
+        font-family: 'Cinzel';
+        padding: 15px 50px;
+        letter-spacing: 2px;
+        transition: 0.4s;
     }
 
-    .quant-card:hover {
-        border-color: #D4AF37;
-        transform: translateY(-5px);
+    .stButton>button:hover {
+        background: #D4AF37;
+        color: #000;
     }
 
     .footer {
-        background: #000;
-        padding: 40px;
-        margin-top: 100px;
-        border-top: 1px solid #1a1a1a;
-        font-size: 12px;
-        color: #444;
+        padding: 60px;
         text-align: center;
+        border-top: 1px solid #222;
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: #555;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -111,66 +132,79 @@ st.markdown("""
 # 4. EXECUTION TERMINAL
 # ==========================================
 def main():
-    # بوابة الحماية القانونية (Gatekeeper)
+    # Luxury Entrance (Gatekeeper)
     if 'authorized' not in st.session_state:
-        st.markdown(f"<h1 style='text-align:center; color:#D4AF37; font-family:Montserrat;'>{SYSTEM_NAME} TERMINAL</h1>", unsafe_allow_html=True)
         st.markdown(f"""
-        <div class="legal-alert">
-            <p style="color:#D4AF37; font-weight:bold; font-size:18px;">LEGAL DISCLOSURE / إقرار قانوني</p>
-            <p style="font-size:14px; color:#aaa;">{LEGAL_EN}</p>
-            <hr style="border-color:#222">
-            <p style="font-size:14px; color:#aaa; direction:rtl;">{LEGAL_AR}</p>
+        <div style="text-align:center; margin-top:100px;">
+            <h1 class="gold-accent" style="font-size:4rem;">{SYSTEM_NAME}</h1>
+            <p style="letter-spacing:10px; font-weight:200;">PRESTIGE TERMINAL</p>
+            <div style="max-width:700px; margin:40px auto; padding:30px; border:1px solid #222; font-size:12px; color:#666;">
+                <p>{LEGAL_EN}</p>
+                <hr style="border-color:#222">
+                <p style="direction:rtl;">{LEGAL_AR}</p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("I ACCEPT THE TERMS & CONDITIONS / أوافق على الشروط", use_container_広告=True):
-            st.session_state.authorized = True
-            st.rerun()
+        cols = st.columns([1, 1, 1])
+        with cols[1]:
+            if st.button("ENTER TERMINAL", use_container_width=True):
+                st.session_state.authorized = True
+                st.rerun()
         return
 
-    # Header
+    # Main Interface
     st.markdown(f"""
     <div class="main-header">
-        <h1 style="font-family:Montserrat; font-weight:800; font-size:4rem; margin:0;">{SYSTEM_NAME} <span style="color:#D4AF37;">EG</span></h1>
-        <p style="color:#555; letter-spacing:5px;">INSTITUTIONAL QUANTUM TERMINAL BY {OWNER}</p>
+        <p style="letter-spacing:8px; font-size:12px; color:#D4AF37;">STATION: {STATION_ID}</p>
+        <h1 style="font-size:4.5rem; margin:10px 0;">{SYSTEM_NAME} <span class="gold-accent">LUXURY</span></h1>
+        <p style="color:#555; font-weight:200;">CURATED INTELLIGENCE FOR <b>{OWNER}</b></p>
     </div>
     """, unsafe_allow_html=True)
 
-    with st.spinner("DECRYPTING MARKET VECTORS..."):
-        df = get_institutional_data()
+    with st.spinner("CALIBRATING ASSET VECTORS..."):
+        df = get_market_intelligence()
 
     if not df.empty:
-        # خوارزمية مشفرة (Internal Vectors)
+        # Proprietary Luxury Algo
         df['T'] = np.round(df['P'] + (df['R1'] - df['P']) * 1.618, 2)
         df['ROI'] = np.round(((df['T'] - df['Price']) / df['Price']) * 100, 1)
         
-        signals = df[df['Score'] >= 5].sort_values(by='ROI', ascending=False).head(12)
+        # Display Top Executive Picks
+        signals = df[df['Score'] >= 5].sort_values(by='ROI', ascending=False).head(9)
         
         cols = st.columns(3)
         for i, (_, row) in enumerate(signals.iterrows()):
             with cols[i % 3]:
                 st.markdown(f"""
-                <div class="quant-card">
-                    <h2 style="margin:0; font-family:Montserrat;">{row['Symbol']}</h2>
-                    <p style="color:#444; font-size:12px;">ASSET SECURED BY {OWNER.split()[0]}</p>
-                    <div style="background:#000; padding:20px; margin:20px 0; border-left:4px solid #D4AF37;">
-                        <small style="color:#D4AF37;">TARGET VECTOR</small>
-                        <div style="font-size:32px; font-weight:bold; color:#00ffaa;">{row['T']}</div>
-                        <div style="color:#00ffaa; font-size:14px;">+{row['ROI']}% POTENTIAL</div>
+                <div class="luxury-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-family:'Cinzel'; font-size:1.8rem; font-weight:bold;">{row['Symbol']}</span>
+                        <span style="color:#D4AF37; font-size:9px; border:1px solid #D4AF37; padding:2px 8px;">VIP ACCESS</span>
                     </div>
-                    <div style="font-size:14px; color:#666;">
-                        ENTRY: {row['Price']} EGP
+                    <p style="color:#444; font-size:10px; margin-top:5px; letter-spacing:2px;">CERTIFIED BY {OWNER}</p>
+                    
+                    <div class="target-box">
+                        <small style="color:#555; font-size:10px; letter-spacing:3px;">PROPRIETARY TARGET</small>
+                        <div style="font-size:36px; font-weight:bold; color:#D4AF37;">{row['T']}</div>
+                        <div style="color:#00ffaa; font-size:14px; letter-spacing:1px;">Est. Growth: {row['ROI']}%</div>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; color:#333; font-size:12px;">
+                        <span>ENTRY PRICE: {row['Price']}</span>
+                        <span>STATUS: ACTIVE</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-    
-    # Footer - الملكية الفكرية
+    else:
+        st.error("Access Denied. Terminal cannot reach the market server.")
+
+    # Luxury Footer
     st.markdown(f"""
     <div class="footer">
-        {LEGAL_EN}<br><br>
-        <div style="direction:rtl;">{LEGAL_AR}</div>
-        <br>
-        <p style="color:#D4AF37; font-weight:bold;">BY {OWNER}</p>
+        <p>{LEGAL_EN}</p>
+        <p style="direction:rtl; margin-top:10px;">{LEGAL_AR}</p>
+        <h3 style="margin-top:30px; font-size:14px; color:#D4AF37;">DESIGNED BY {OWNER}</h3>
     </div>
     """, unsafe_allow_html=True)
 
