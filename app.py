@@ -7,22 +7,14 @@ import os
 from datetime import datetime
 import pytz
 
-# --- الإعدادات الفنية ---
+# --- إعدادات النظام ---
 egypt_tz = pytz.timezone('Africa/Cairo')
 today_date = datetime.now(egypt_tz).strftime("%Y-%m-%d")
-INTERNAL_DB = f"w_egx_gold_v4_{today_date}.log"
+INTERNAL_DB = f"w_egx_gold_fixed_{today_date}.log"
 
 st.set_page_config(page_title="WAHBA EGX GOLD", layout="wide")
 
 # --- محرك الحسابات ---
-class WahbaEngineGold:
-    @staticmethod
-    def calculate_logic(df):
-        df['Target'] = np.round(df['P'] + (df['R1'] - df['P']) * 1.618, 2)
-        df['StopLoss'] = np.round(df['S1'] * 0.99, 2)
-        df['ROI'] = np.round(((df['Target'] - df['Price']) / df['Price']) * 100, 1)
-        return df
-
 def run_wahba_engine():
     if os.path.exists(INTERNAL_DB): return pd.read_csv(INTERNAL_DB)
     try:
@@ -30,104 +22,103 @@ def run_wahba_engine():
         res = requests.post(url, json={"filter": [{"left": "market_cap_basic", "operation": "nempty"}], "markets": ["egypt"], "columns": ["name"]}, timeout=10).json()
         all_syms = [item['s'].split(':')[1] for item in res['data'] if not item['s'].split(':')[1].isdigit()]
     except: return pd.DataFrame()
+    
     results = []
-    for s in all_syms[:20]:
+    for s in all_syms[:15]:
         try:
             h = TA_Handler(symbol=s, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=7)
             analysis = h.get_analysis()
             ind = analysis.indicators
             sc = 8 if "STRONG_BUY" in analysis.summary["RECOMMENDATION"] else 5
+            
+            # الحسابات الفنية
+            price = round(ind.get("close"), 2)
+            p_point = round(ind.get("Pivot.M.Classic.Middle"), 2)
+            r1 = round(ind.get("Pivot.M.Classic.R1"), 2)
+            s1 = round(ind.get("Pivot.M.Classic.S1"), 2)
+            target = round(p_point + (r1 - p_point) * 1.618, 2)
+            
             results.append({
-                "Symbol": s, "Price": round(ind.get("close"), 2), "Score": sc,
-                "S1": round(ind.get("Pivot.M.Classic.S1"), 2),
-                "P": round(ind.get("Pivot.M.Classic.Middle"), 2),
-                "R1": round(ind.get("Pivot.M.Classic.R1"), 2)
+                "Symbol": s, "Price": price, "Score": sc,
+                "S1": s1, "P": p_point, "R1": r1,
+                "Target": target, "SL": round(s1 * 0.99, 2),
+                "ROI": round(((target - price) / price) * 100, 1)
             })
         except: continue
     df = pd.DataFrame(results)
-    if not df.empty:
-        df = WahbaEngineGold.calculate_logic(df)
-        df.to_csv(INTERNAL_DB, index=False)
+    if not df.empty: df.to_csv(INTERNAL_DB, index=False)
     return df
 
-# --- تصميم الواجهة (تكبير الأحجام) ---
+# --- الاستايل (CSS) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
     * { font-family: 'Tajawal', sans-serif; direction: rtl; }
     .stApp { background-color: #000; }
+    .gold-title { text-align: center; color: #d4af37; font-size: 35px; font-weight: 900; padding: 20px; border-bottom: 2px solid #d4af37; }
     
-    .main-title {
-        text-align: center; color: #d4af37; font-size: 40px; font-weight: 900;
-        padding: 30px; border-bottom: 3px solid #d4af37; margin-bottom: 30px;
-    }
-    
-    .stButton>button {
-        background: linear-gradient(180deg, #fceabb, #f8b500) !important;
-        color: #000 !important; font-weight: 900 !important; height: 70px !important;
-        font-size: 24px !important; border-radius: 15px !important; border: none !important;
-        width: 100% !important; margin-bottom: 40px;
-    }
-
     .card-gold {
         background: #0a0a0a; border: 3px solid #d4af37; border-radius: 20px;
-        padding: 30px; margin-bottom: 40px; box-shadow: 0 0 20px rgba(212,175,55,0.3);
+        padding: 25px; margin-bottom: 30px; text-align: right;
     }
-
-    .sym-name { font-size: 45px; font-weight: 900; color: #d4af37; }
-    .score-tag { background: #d4af37; color: #000; padding: 5px 15px; border-radius: 10px; font-size: 20px; font-weight: bold; }
-
-    .target-box-gold {
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .sym-name { font-size: 40px; font-weight: 900; color: #d4af37; }
+    .score-badge { background: #d4af37; color: #000; padding: 5px 15px; border-radius: 10px; font-weight: bold; font-size: 20px; }
+    
+    .target-container {
         background: linear-gradient(135deg, #fceabb, #f8b500);
-        border-radius: 15px; padding: 25px; text-align: center; margin: 25px 0;
+        border-radius: 15px; padding: 20px; text-align: center; margin: 20px 0;
     }
-    .target-label { font-size: 20px; color: #000; font-weight: bold; }
-    .target-value { font-size: 60px; font-weight: 900; color: #006400; line-height: 1; }
-    .roi-tag { font-size: 22px; color: #006400; font-weight: 900; margin-top: 10px; }
-
-    .tech-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
-    .label-tech { font-size: 16px; color: #888; }
-    .val-tech { font-size: 24px; color: #d4af37; font-weight: bold; }
-
-    .sl-box { color: #ff4b4b; font-weight: bold; font-size: 22px; text-align: left; margin-top: 20px; border-top: 1px solid #333; padding-top: 10px; }
+    .t-val { font-size: 55px; font-weight: 900; color: #006400; line-height: 1; }
+    .t-roi { font-size: 20px; color: #006400; font-weight: bold; }
+    
+    .tech-grid { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    .tech-grid td { text-align: center; padding: 10px; border: 1px solid #222; }
+    .l-t { font-size: 14px; color: #888; }
+    .v-t { font-size: 20px; color: #d4af37; font-weight: bold; }
+    
+    .sl-text { color: #ff4b4b; font-weight: bold; font-size: 22px; margin-top: 20px; text-align: left; border-top: 1px solid #222; padding-top: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
 # --- عرض المحتوى ---
-st.markdown('<div class="main-title">WAHBA EGX GOLD</div>', unsafe_allow_html=True)
+st.markdown('<div class="gold-title">WAHBA EGX GOLD</div>', unsafe_allow_html=True)
+st.write("") # مسافة
 
 if st.button("تحديث المسح الشامل للسوق"):
     if os.path.exists(INTERNAL_DB): os.remove(INTERNAL_DB)
-    with st.spinner("جاري التحليل..."):
-        df = run_wahba_engine()
+    with st.spinner("جاري تحليل الذهب..."):
+        market_df = run_wahba_engine()
     
-    if not df.empty:
-        for _, row in df.iterrows():
-            st.markdown(f"""
+    if not market_df.empty:
+        for _, row in market_df.iterrows():
+            # استخدام f-string داخل st.markdown مع تفعيل unsafe_allow_html
+            card_html = f"""
             <div class="card-gold">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="card-header">
                     <span class="sym-name">{row['Symbol']}</span>
-                    <span class="score-tag">SCORE: {row['Score']}/10</span>
+                    <span class="score-badge">SCORE: {row['Score']}/10</span>
                 </div>
                 
-                <div style="font-size:25px; margin:15px 0; color:#fff;">السعر الحالي: <b>{row['Price']}</b> ج.م</div>
+                <div style="font-size:22px; color:#fff; margin-bottom:10px;">السعر الحالي: <b>{row['Price']}</b> ج.م</div>
 
-                <div class="target-box-gold">
-                    <div class="target-label">الهدف المستهدف (Fib 1.618)</div>
-                    <div class="target-value">{row['Target']}</div>
-                    <div class="roi-tag">العائد المتوقع: {row['ROI']}% +</div>
+                <div class="target-container">
+                    <div style="color:#000; font-weight:bold; font-size:18px;">الهدف المستهدف (Fib 1.618)</div>
+                    <div class="t-val">{row['Target']}</div>
+                    <div class="t-roi">ربح متوقع: {row['ROI']}% +</div>
                 </div>
 
-                <table class="tech-table">
+                <table class="tech-grid">
                     <tr>
-                        <td><div class="label-tech">S1 (دعم)</div><div class="val-tech">{row['S1']}</div></td>
-                        <td><div class="label-tech">P (ارتكاز)</div><div class="val-tech">{row['P']}</div></td>
-                        <td><div class="label-tech">R1 (مقاومة)</div><div class="val-tech">{row['R1']}</div></td>
+                        <td><div class="l-t">S1 (دعم)</div><div class="v-t">{row['S1']}</div></td>
+                        <td><div class="l-t">P (ارتكاز)</div><div class="v-t">{row['P']}</div></td>
+                        <td><div class="l-t">R1 (مقاومة)</div><div class="v-t">{row['R1']}</div></td>
                     </tr>
                 </table>
 
-                <div class="sl-box">⚠️ وقف الخسارة: {row['StopLoss']}</div>
+                <div class="sl-text">⚠️ وقف الخسارة: {row['SL']}</div>
             </div>
-            """, unsafe_allow_html=True)
+            """
+            st.markdown(card_html, unsafe_allow_html=True)
     else:
         st.error("فشل في جلب البيانات.")
