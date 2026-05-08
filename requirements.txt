@@ -1,10 +1,7 @@
 streamlit
-tradingview_ta
 pandas
+numpy
 requests
 pytz
-numpy
 scikit-learn
-joblib
-plotly
-matplotlib
+tradingview-ta
