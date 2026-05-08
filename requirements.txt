@@ -5,3 +5,6 @@ requests
 pytz
 numpy
 scikit-learn
+joblib
+plotly
+matplotlib
