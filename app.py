@@ -3,21 +3,29 @@ from tradingview_ta import TA_Handler, Interval
 import pandas as pd
 import numpy as np
 import requests
-from datetime import datetime
+from datetime import datetime, date
+from concurrent.futures import ThreadPoolExecutor
 
 # ==========================================
-# 1. INSTITUTIONAL IDENTITY - CORRECTED NAME
+# 1. CORP CONFIG
 # ==========================================
 CORP_NAME = "WAHBA QUANTITATIVE SOLUTIONS"
-FOUNDER = "MUSTAFA TAMER"  # التعديل هنا
-SYSTEM_NAME = "WAHBA EGX PRO"
-VERSION = "INSTITUTIONAL v5.2.1"
+FOUNDER = "MUSTAFA TAMER"
+VERSION = "INSTITUTIONAL v7.0.0 (Daily Archive Mode)"
 
 # ==========================================
-# 2. CORE DATA ENGINE
+# 2. SMART STORAGE ENGINE (الحل الجوهري)
 # ==========================================
-def get_market_data():
+
+# استخدام الـ Cache لحفظ البيانات على مستوى السيرفر وليس فقط جلسة المستخدم
+@st.cache_data(ttl=86400) # التخزين لمدة 24 ساعة (يوم كامل)
+def get_daily_market_data(_last_update_date):
+    """
+    هذه الدالة ستعمل مرة واحدة فقط في اليوم. 
+    أول مستخدم يدخل سيقوم النظام بعمل سكان، والباقي سيشاهدون النتائج المحفوظة.
+    """
     try:
+        # 1. جلب الرموز
         scanner_url = "https://scanner.tradingview.com/egypt/scan"
         payload = {"filter": [{"left": "market_cap_basic", "operation": "nempty"}],
                    "markets": ["egypt"], "columns": ["name"]}
@@ -25,140 +33,103 @@ def get_market_data():
         symbols = [i['s'].split(':')[1] for i in res['data'] if ":" in i['s']]
         
         results = []
-        for sym in symbols[:30]:
+        
+        # 2. جلب البيانات (بالتوازي لتوفير الوقت في أول مرة فقط)
+        def fetch(s):
             try:
-                h = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", 
-                               interval=Interval.INTERVAL_1_DAY, timeout=5)
+                h = TA_Handler(symbol=s, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=2)
                 ind = h.get_analysis().indicators
-                results.append({
-                    "Symbol": sym, "Price": ind["close"], "Score": h.get_analysis().summary["BUY"],
-                    "P": ind["Pivot.M.Classic.Middle"], "R1": ind["Pivot.M.Classic.R1"]
-                })
-            except: continue
-        return pd.DataFrame(results)
-    except: return pd.DataFrame()
+                return {"Symbol": s, "Price": ind["close"], "P": ind["Pivot.M.Classic.Middle"], "R1": ind["Pivot.M.Classic.R1"]}
+            except: return None
+
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            results = list(filter(None, executor.map(fetch, symbols)))
+            
+        df = pd.DataFrame(results)
+        df['Update_Date'] = str(date.today())
+        return df
+    except Exception as e:
+        return pd.DataFrame()
 
 # ==========================================
-# 3. FIXED LUXURY UI (NAME ALIGNMENT)
+# 3. INTERFACE & LOGIC
 # ==========================================
-st.set_page_config(page_title=f"{SYSTEM_NAME} | {FOUNDER}", layout="wide")
+st.set_page_config(page_title=CORP_NAME, layout="wide")
 
-st.markdown(f"""
+# CSS لإعطاء مظهر احترافي للمنصة
+st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;700&family=Cinzel:wght@400;700&family=Montserrat:wght@200;400;800&display=swap');
-    
-    .stApp {{ background: #020202; color: #f0f0f0; }}
-    h1, h2, .luxury-font {{ font-family: 'Cinzel', serif; letter-spacing: 4px; }}
-    body, p, div {{ font-family: 'Montserrat', 'Cairo', sans-serif; }}
-
-    .header-box {{
-        background: linear-gradient(90deg, #000 0%, #0a0a0a 100%);
-        padding: 40px; border-bottom: 2px solid #D4AF37; margin-bottom: 30px;
-    }}
-
-    .status-bar {{
-        display: flex; justify-content: space-around;
-        background: #000; border: 1px solid #111; padding: 10px;
-        margin-bottom: 30px; font-size: 10px; color: #555; text-transform: uppercase;
-    }}
-
-    .asset-card {{
-        background: #080808; border: 1px solid #1a1a1a; padding: 25px;
-        margin-bottom: 20px; border-left: 3px solid #D4AF37;
-    }}
-
-    .target-val {{ font-size: 30px; font-weight: 800; color: #00ffaa; margin: 10px 0; }}
-    
-    .founder-text {{
-        color: #D4AF37; font-weight: 800; margin: 0; font-size: 1.2rem;
-        white-space: nowrap; /* يمنع نزول الاسم لسطر جديد */
-    }}
-
-    .footer {{
-        padding: 60px; text-align: center; border-top: 1px solid #111;
-        font-size: 11px; color: #333; line-height: 1.8;
-    }}
+    .stApp { background: #050505; color: #ffffff; }
+    .status-tag { background: #1a1a1a; padding: 5px 15px; border-radius: 50px; font-size: 12px; color: #D4AF37; border: 1px solid #D4AF37; }
+    .card { background: #0f0f0f; border: 1px solid #1e1e1e; padding: 20px; border-radius: 10px; transition: 0.3s; }
+    .card:hover { border-color: #D4AF37; background: #151515; }
+    .price-tag { color: #00ffaa; font-size: 24px; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 4. EXECUTION FLOW
-# ==========================================
 def main():
-    if 'auth' not in st.session_state:
-        st.markdown(f"""
-        <div style="text-align:center; padding:100px 20px;">
-            <p style="letter-spacing:10px; color:#D4AF37; font-size:14px;">{CORP_NAME}</p>
-            <h1 style="font-size:3.5rem;">TERMINAL ACCESS</h1>
-            <div style="max-width:750px; margin:40px auto; border:1px solid #111; padding:40px; background:#050505;">
-                <p style="color:#666; font-size:12px;">SYSTEM INITIALIZATION REQUIRED. PROPRIETARY ALGORITHMS PROTECTED BY {FOUNDER} & PARTNERS.</p>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("INITIALIZE SECURE SESSION", use_container_width=True):
-            st.session_state.auth = True
-            st.rerun()
-        return
-
-    # تم تعديل عرض الاسم هنا ليكون في سطر واحد وواضح
+    # التحقق من تاريخ اليوم
+    today_str = str(date.today())
+    
+    # Header
     st.markdown(f"""
-    <div class="header-box">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div>
-                <div style="color:#D4AF37; font-size:10px; letter-spacing:5px;">{CORP_NAME}</div>
-                <h1 style="font-size:2.5rem; margin:5px 0;">{SYSTEM_NAME}</h1>
-            </div>
-            <div style="text-align:right;">
-                <p style="color:#555; font-size:10px; margin:0; letter-spacing:2px;">MASTER OPERATOR</p>
-                <p class="founder-text">{FOUNDER}</p>
-            </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; padding: 20px 0; border-bottom: 1px solid #222;">
+        <div>
+            <h1 style="margin:0; color:#D4AF37;">WAHBA PRO TERMINAL</h1>
+            <p style="margin:0; color:#666;">Institutional Analysis Engine | Founder: {FOUNDER}</p>
         </div>
+        <div class="status-tag">● SYSTEM STATUS: STABLE</div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown(f"""
-    <div class="status-bar">
-        <span>● DATA CLUSTER: ACTIVE</span>
-        <span>● RISK ALGO: OPERATIONAL</span>
-        <span>● NODE: LONDON-SECURE</span>
-        <span>● VERSION: {VERSION}</span>
-    </div>
-    """, unsafe_allow_html=True)
+    # جلب البيانات (ستعمل فقط لو التاريخ تغير أو أول مرة)
+    with st.spinner("Synchronizing with Egyptian Exchange Daily Closures..."):
+        df_daily = get_daily_market_data(today_str)
 
-    with st.spinner("FETCHING INSTITUTIONAL VECTORS..."):
-        df = get_market_data()
-
-    if not df.empty:
-        df['T'] = np.round(df['P'] + (df['R1'] - df['P']) * 1.618, 2)
-        df['ROI'] = np.round(((df['T'] - df['Price']) / df['Price']) * 100, 1)
+    if not df_daily.empty:
+        # حسابات الأهداف (تتم في الذاكرة فوراً)
+        df_daily['Target'] = np.round(df_daily['P'] + (df_daily['R1'] - df_daily['P']) * 1.618, 2)
+        df_daily['ROI'] = np.round(((df_daily['Target'] - df_daily['Price']) / df_daily['Price']) * 100, 1)
         
-        signals = df[df['Score'] >= 5].sort_values(by='ROI', ascending=False).head(12)
+        # عرض البيانات
+        tab1, tab2 = st.tabs(["🎯 Top Signals", "📊 Full Market Sheet"])
         
-        cols = st.columns(3)
-        for i, (_, row) in enumerate(signals.iterrows()):
-            with cols[i % 3]:
-                st.markdown(f"""
-                <div class="asset-card">
-                    <div style="font-family:'Cinzel'; font-size:1.5rem;">{row['Symbol']}</div>
-                    <div style="font-size:9px; color:#444;">INSTITUTIONAL GRADE</div>
-                    <div style="background:#000; padding:15px; border:1px solid #111; margin:15px 0; text-align:center;">
-                        <div style="color:#555; font-size:9px;">LIQUIDITY TARGET</div>
-                        <div class="target-val">{row['T']}</div>
-                        <div style="color:#00ffaa; font-size:12px;">+{row['ROI']}% POTENTIAL</div>
+        with tab1:
+            st.markdown(f"### 🚀 High Potential Signals - {today_str}")
+            top_hits = df_daily.sort_values(by='ROI', ascending=False).head(12)
+            
+            cols = st.columns(3)
+            for idx, row in enumerate(top_hits.to_dict(orient='records')):
+                with cols[idx % 3]:
+                    st.markdown(f"""
+                    <div class="card">
+                        <div style="display:flex; justify-content:space-between;">
+                            <b style="font-size:18px;">{row['Symbol']}</b>
+                            <span style="color:#888;">{today_str}</span>
+                        </div>
+                        <div style="margin:15px 0;">
+                            <small style="color:#555;">DAILY PROJECTION</small>
+                            <div class="price-tag">{row['Target']} EGP</div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="color:#00ffaa;">+{row['ROI']}% ROI</span>
+                            <span style="color:#444;">Last: {row['Price']}</span>
+                        </div>
                     </div>
-                    <div style="display:flex; justify-content:space-between; font-size:10px; color:#222;">
-                        <span>ENTRY: {row['Price']}</span>
-                        <span>NODE: EX-04</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
+                    st.write("")
 
+        with tab2:
+            st.markdown("### 📋 Full Market Archive (Read-Only)")
+            st.dataframe(df_daily, use_container_width=True, height=600)
+    else:
+        st.error("Unable to sync data. Please check your connection.")
+
+    # Footer للبراندينج
     st.markdown(f"""
-    <div class="footer">
-        <p style="color:#D4AF37; letter-spacing:3px;">{CORP_NAME}</p>
-        © {datetime.now().year} {FOUNDER} & PARTNERS. ALL RIGHTS RESERVED.<br>
-        SYSTEM OPERATED UNDER INSTITUTIONAL LICENSE. CAPITAL AT RISK.
+    <div style="text-align:center; padding:50px; color:#333; font-size:12px;">
+        COPYRIGHT © 2024 {CORP_NAME} | ALL RIGHTS RESERVED<br>
+        DATA REFRESHES AUTOMATICALLY EVERY 24 HOURS
     </div>
     """, unsafe_allow_html=True)
 
