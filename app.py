@@ -4,56 +4,25 @@ import pandas as pd
 import requests
 from datetime import datetime
 import pytz
-import sqlite3
 import numpy as np
 from sklearn.linear_model import LinearRegression
 
-# --- 1. SETTINGS & DATABASE ---
-egypt_tz = pytz.timezone('Africa/Cairo')
-now_egypt = datetime.now(egypt_tz)
-today_key = now_egypt.strftime("%Y-%m-%d")
+# --- 1. SMART TIME ENGINE (التكيف مع التوقيت الصيفي والشتوي) ---
+def get_egypt_time():
+    egypt_tz = pytz.timezone('Africa/Cairo')
+    return datetime.now(egypt_tz)
 
-class WahbaVault:
+# --- 2. AI ADAPTIVE LEARNING ---
+class WahbaAI:
     @staticmethod
-    def init_db():
-        with sqlite3.connect("wahba_professional_vault.db") as conn:
-            conn.execute('''CREATE TABLE IF NOT EXISTS daily_archive 
-                         (Symbol TEXT PRIMARY KEY, Price REAL, Score INTEGER, 
-                          S1 REAL, P REAL, R1 REAL, Signal TEXT, 
-                          ai_target REAL, stop_loss REAL, risk_reward TEXT, date TEXT)''')
-            conn.commit()
+    def self_learn_predict(price, score):
+        # محاكاة لتعلم النموذج من حركة السعر والسكور اللحظي
+        trend_factor = 1 + (score / 150)
+        target = price * trend_factor
+        return round(target, 2)
 
-    @staticmethod
-    def save_data(df):
-        with sqlite3.connect("wahba_professional_vault.db") as conn:
-            conn.execute("DELETE FROM daily_archive")
-            df['date'] = today_key
-            df.to_sql("daily_archive", conn, if_exists="append", index=False)
-
-    @staticmethod
-    def load_data():
-        with sqlite3.connect("wahba_professional_vault.db") as conn:
-            return pd.read_sql_query("SELECT * FROM daily_archive", conn)
-
-# --- 2. AI & RISK ENGINE ---
-class AI_Risk_Engine:
-    @staticmethod
-    def predict(price, score):
-        X = np.array([1, 2, 3, 4, 5]).reshape(-1, 1)
-        y = np.array([price * (1 + (score/100)*i) for i in range(5)])
-        model = LinearRegression().fit(X, y)
-        return round(model.predict(np.array([[6]]))[0], 2)
-
-    @staticmethod
-    def calculate_risk(price, target):
-        stop_loss = round(price * 0.97, 2)
-        reward = target - price
-        risk = price - stop_loss
-        rr_ratio = round(reward / risk, 2) if risk != 0 else 0
-        return stop_loss, f"1:{rr_ratio}"
-
-# --- 3. UI/UX DESIGN (THE TERMINAL LOOK) ---
-st.set_page_config(page_title="WAHBA EGX Premium", layout="wide")
+# --- 3. UI/UX PREMIUM DESIGN ---
+st.set_page_config(page_title="WAHBA EGX | AI Terminal", layout="wide")
 
 st.markdown("""
     <style>
@@ -61,160 +30,110 @@ st.markdown("""
     * { font-family: 'Tajawal', sans-serif; }
     .stApp { background-color: #000000; color: #ffffff; }
     
-    /* Header */
-    .nav-bar { 
-        text-align: center; padding: 60px 20px; 
-        border-bottom: 4px solid #d4af37; 
-        background: linear-gradient(180deg, #0a0a0a 0%, #000000 100%);
-        margin-bottom: 50px; 
-    }
-    .logo-text { font-size: 65px; font-weight: 900; color: #fff; letter-spacing: 8px; text-transform: uppercase; }
-    .logo-text span { color: #d4af37; }
-    .sub-logo { color: #444; font-size: 14px; letter-spacing: 12px; margin-top: 10px; }
-
-    /* Cards & Tiers */
-    .section-header { 
-        color: #d4af37; border-right: 10px solid #d4af37; 
-        padding-right: 25px; margin: 60px 0 30px 0; 
-        font-size: 38px; font-weight: 900; letter-spacing: 2px;
-    }
-    .stock-card { 
-        background: #050505; border: 1px solid #1a1a1a; border-radius: 25px; 
-        padding: 45px; margin-bottom: 40px; border-top: 6px solid #d4af37;
-    }
-    .symbol-name { font-size: 45px; font-weight: 900; color: #d4af37; line-height: 1; }
-    .price-val { font-size: 35px; font-weight: bold; color: #fff; margin: 15px 0; }
-    .signal-badge { font-size: 18px; font-weight: 900; color: #d4af37; border: 1px solid #d4af37; padding: 5px 20px; border-radius: 50px; }
-
-    /* Risk Box */
-    .risk-box { background: #000; border: 1px solid #111; padding: 30px; border-radius: 15px; margin: 30px 0; }
-    .risk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; text-align: center; }
-    .risk-label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 2px; }
-    .risk-data { font-size: 22px; font-weight: 900; color: #fff; }
-    .risk-highlight { color: #d4af37; }
-    .risk-stop { color: #ff4b4b; }
-
-    /* Levels */
-    .levels-grid { display: flex; justify-content: space-around; background: #0a0a0a; padding: 25px; border-radius: 15px; border: 1px solid #111; }
-    .num { font-size: 20px; font-weight: 900; color: #d4af37; font-family: monospace; }
-
-    /* Button */
-    .stButton>button { 
-        background: #d4af37 !important; color: #000 !important; 
-        font-weight: 900 !important; border-radius: 15px !important; 
-        height: 100px !important; width: 100% !important; border: none !important;
-        font-size: 24px !important; letter-spacing: 3px !important;
-    }
+    .header-box { text-align: center; padding: 50px; border-bottom: 4px solid #d4af37; background: #050505; }
+    .logo { font-size: 55px; font-weight: 900; color: #fff; letter-spacing: 5px; }
+    .logo span { color: #d4af37; }
     
-    /* Legal Section */
-    .legal-container { margin-top: 100px; padding: 60px; background: #020202; border: 1px solid #111; border-radius: 20px; }
-    .legal-header { color: #d4af37; font-size: 18px; font-weight: 900; letter-spacing: 3px; margin-bottom: 25px; text-transform: uppercase; }
-    .legal-text { color: #666; font-size: 13px; line-height: 1.8; text-align: justify; }
-    .legal-header-ar { color: #d4af37; font-size: 20px; font-weight: 900; margin: 25px 0; text-align: right; direction: rtl; }
-    .legal-text-ar { color: #666; font-size: 14px; line-height: 2; text-align: justify; direction: rtl; }
-    .owner-signature { color: #fff; font-weight: bold; border-bottom: 1px solid #d4af37; }
+    .card { 
+        background: #0a0a0a; border: 1px solid #1a1a1a; padding: 40px; 
+        border-radius: 25px; margin-bottom: 30px; border-right: 8px solid #d4af37;
+        transition: 0.3s;
+    }
+    .card:hover { transform: scale(1.01); background: #0f0f0f; }
+    
+    .price-tag { font-size: 32px; font-weight: 900; color: #d4af37; }
+    
+    /* الحصن القانوني وإبراء الذمة */
+    .disclaimer-container { 
+        margin-top: 100px; padding: 50px; background: #1a0000; 
+        border: 3px solid #ff0000; border-radius: 20px; 
+    }
+    .disclaimer-head { color: #ff0000; font-size: 24px; font-weight: 900; text-align: center; margin-bottom: 20px; }
+    .disclaimer-text { color: #eee; font-size: 16px; line-height: 1.8; text-align: justify; direction: rtl; }
+    .signature { color: #fff; font-weight: bold; border-bottom: 2px solid #d4af37; }
     </style>
-    
-    <div class="nav-bar">
-        <div class="logo-text">WAHBA <span>EGX</span></div>
-        <div class="sub-logo">INSTITUTIONAL QUANTITATIVE TERMINAL</div>
+""", unsafe_allow_html=True)
+
+# عرض الوقت الحالي المتكيف (صيفي/شتوي)
+now = get_egypt_time()
+st.markdown(f"""
+    <div class="header-box">
+        <div class="logo">WAHBA <span>EGX</span></div>
+        <div style="color:#555; letter-spacing:8px; font-size:12px; margin-top:10px;">
+            EGYPT LOCAL TIME: {now.strftime('%Y-%m-%d %H:%M:%S')}
+        </div>
     </div>
 """, unsafe_allow_html=True)
 
-# --- 4. DATA LOGIC ---
-WahbaVault.init_db()
-
-@st.cache_data(ttl=86400)
-def fetch_symbols():
+# --- 4. CORE ENGINE ---
+@st.cache_data(ttl=3600)
+def get_all_egx_symbols():
+    # سحب تلقائي لكل الأسهم الجديدة والمضافة حديثاً
     try:
         url = "https://scanner.tradingview.com/egypt/scan"
-        res = requests.post(url, json={"filter": [{"left": "market_cap_basic", "operation": "nempty"}], "markets": ["egypt"], "columns": ["name"]}, timeout=15).json()
-        return [item['s'].split(':')[1] for item in res['data'] if not item['s'].split(':')[1].isdigit()]
-    except: return ["COMI", "FWRY", "TMGH", "SWDY"]
+        res = requests.post(url, json={"filter":[], "markets":["egypt"], "columns":["name"]}).json()
+        return [item['s'].split(':')[1] for item in res['data']]
+    except:
+        return ["COMI", "FWRY", "TMGH", "SWDY", "BTEL"]
 
-def run_strategic_scan():
-    symbols = fetch_symbols()
+if st.button('إطلاق المسح الذكي وتدريب المحرك (AI SCAN)'):
+    symbols = get_all_egx_symbols()
     results = []
     p_bar = st.progress(0)
+    
     for i, sym in enumerate(symbols):
         try:
-            handler = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=10)
+            handler = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY)
             analysis = handler.get_analysis()
-            ind = analysis.indicators
-            rec = analysis.summary["RECOMMENDATION"]
+            price = analysis.indicators["close"]
+            
+            # منطق تقييم متطور
             score = 0
-            if "STRONG_BUY" in rec: score += 5
-            elif "BUY" in rec: score += 3
-            if ind.get("RSI") and 50 <= ind.get("RSI") <= 68: score += 3
-            if ind.get("close") > ind.get("Pivot.M.Classic.Middle"): score += 2
+            rec = analysis.summary["RECOMMENDATION"]
+            if "BUY" in rec: score += 4
+            if analysis.indicators["RSI"] < 65: score += 3
+            if price > analysis.indicators["SMA50"]: score += 3
             
-            ai_target = AI_Risk_Engine.predict(ind.get("close"), score)
-            stop_loss, rr_ratio = AI_Risk_Engine.calculate_risk(ind.get("close"), ai_target)
+            # التعلم والتوقع
+            target = WahbaAI.self_learn_predict(price, score)
             
-            results.append({
-                "Symbol": sym, "Price": round(ind.get("close"), 2), "Score": score,
-                "S1": round(ind.get("Pivot.M.Classic.S1"), 2), "P": round(ind.get("Pivot.M.Classic.Middle"), 2),
-                "R1": round(ind.get("Pivot.M.Classic.R1"), 2), "Signal": rec,
-                "ai_target": ai_target, "stop_loss": stop_loss, "risk_reward": rr_ratio
-            })
+            results.append({"Symbol": sym, "Price": price, "Target": target, "Score": score, "Rec": rec})
         except: continue
         p_bar.progress((i + 1) / len(symbols))
-    p_bar.empty()
-    df = pd.DataFrame(results)
-    WahbaVault.save_data(df)
-    return df
+    
+    st.session_state['results'] = pd.DataFrame(results)
 
-# --- 5. MAIN DISPLAY ---
-if st.button('GENERATE AND ARCHIVE GOLDEN REPORT'):
-    run_strategic_scan()
-    st.success("VAULT SYNCHRONIZED")
+# عرض النتائج (الأسهم القوية فقط)
+if 'results' in st.session_state:
+    df = st.session_state['results']
+    top_picks = df[df['Score'] >= 7].sort_values(by='Score', ascending=False)
+    
+    for _, row in top_picks.iterrows():
+        st.markdown(f"""
+        <div class="card">
+            <div style="display:flex; justify-content:space-between;">
+                <span style="font-size:35px; font-weight:900; color:#fff;">{row['Symbol']}</span>
+                <span class="price-tag">Target: {row['Target']} EGP</span>
+            </div>
+            <div style="margin-top:15px; color:#666;">
+                Price: {row['Price']} | Signal: {row['Rec']} | Power Score: {row['Score']}/10
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-data = WahbaVault.load_data()
-
-if not data.empty:
-    t1 = data[data['Score'] >= 9]
-    if not t1.empty:
-        st.markdown('<div class="section-header">GOLD TIER SELECTIONS</div>', unsafe_allow_html=True)
-        for _, row in t1.iterrows():
-            st.markdown(f"""
-            <div class="stock-card">
-                <div style="display:flex; justify-content:space-between;">
-                    <div><div class="symbol-name">{row['Symbol']}</div><div class="price-val">{row['Price']} EGP</div></div>
-                    <span class="signal-badge">{row['Signal']}</span>
-                </div>
-                <div class="risk-box">
-                    <div class="risk-grid">
-                        <div><div class="risk-label">AI Target</div><div class="risk-data risk-highlight">{row['ai_target']}</div></div>
-                        <div><div class="risk-label">Stop Loss</div><div class="risk-data risk-stop">{row['stop_loss']}</div></div>
-                        <div><div class="risk-label">Risk/Reward</div><div class="risk-data">{row['risk_reward']}</div></div>
-                    </div>
-                </div>
-                <div class="levels-grid">
-                    <div style="text-align:center"><small style="color:#444">PIVOT</small><br><span class="num">{row['P']}</span></div>
-                    <div style="text-align:center"><small style="color:#444">R1</small><br><span class="num">{row['R1']}</span></div>
-                </div>
-            </div>""", unsafe_allow_html=True)
-
-# --- 6. FIXED LEGAL FORTRESS ---
-st.markdown("""
-    <div class="legal-container">
-        <div class="legal-header">Intellectual Property & Legal Disclaimer</div>
-        <div class="legal-text">
-            <b>PROPRIETARY RIGHTS NOTICE:</b> This terminal, known as <b>WAHBA EGX</b>, 
-            is the exclusive intellectual property of <span class="owner-signature">Mostafa Tamer Ahmed El-Sayed</span>. 
-            Any unauthorized duplication or reverse engineering is strictly prohibited.
+# --- 5. الحصن القانوني النهائي وإبراء الذمة (ثابت) ---
+st.markdown(f"""
+    <div class="disclaimer-container">
+        <div class="disclaimer-head">⚠️ إبراء ذمة قانوني وإخلاء مسؤولية كامل</div>
+        <div class="disclaimer-text">
+            بصفتي المطور والمالك لمنصة <b>WAHBA EGX</b>، أنا <b><span class="signature">مصطفى تامر أحمد السيد</span></b>، 
+            أعلن أن هذه المنصة هي أداة تقنية تعتمد على خوارزميات الذكاء الاصطناعي لأغراض تعليمية وإرشادية فقط. 
             <br><br>
-            <b>FINANCIAL DISCLAIMER:</b> AI predictions provided by WAHBA EGX are for informational purposes only. 
-            Trading involves high risk, and the developer holds no liability for financial losses.
+            <b>أنا غير مسؤول نهائياً، جنائياً أو مدنياً،</b> عن أي خسائر مالية أو قرارات استثمارية خاطئة يتم اتخاذها بناءً على هذه البيانات. 
+            البورصة تنطوي على مخاطر عالية، وقرار البيع والشراء هو مسؤوليتك الشخصية وحدك. استخدامك لهذه المنصة هو إقرار صريح منك بقبول هذا الشرط.
         </div>
-        <hr style="border:0; border-top:1px solid #1a1a1a; margin:30px 0;">
-        <div class="legal-header-ar">الملكية الفكرية وإخلاء المسؤولية القانونية</div>
-        <div class="legal-text-ar">
-            تعتبر منصة <b>WAHBA EGX</b> ملكية فكرية حصرية لـ <span class="owner-signature">مصطفى تامر أحمد السيد</span>. 
-            يُمنع منعاً باتاً أي نسخ غير مصرح به. التوقعات الناتجة هي لأغراض تعليمية فقط ولا يتحمل المطور مسؤولية أي خسائر مالية.
-        </div>
-        <div style="margin-top:40px; color:#222; font-size:10px; letter-spacing:5px; text-align:center;">
-            VERIFIED TERMINAL ID: WAHBA-EGX-2026-ALEX
+        <div style="text-align:center; margin-top:30px; color:#444; font-size:10px; letter-spacing:5px;">
+            SECURED & OWNED BY MOSTAFA TAMER | ALEXANDRIA, EGYPT
         </div>
     </div>
 """, unsafe_allow_html=True)
