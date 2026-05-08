@@ -52,8 +52,8 @@ class AI_Risk_Engine:
         rr_ratio = round(reward / risk, 2) if risk != 0 else 0
         return stop_loss, f"1:{rr_ratio}"
 
-# --- 3. PREMIUM EXPANSION DESIGN ---
-st.set_page_config(page_title="Wahba Intelligence Premium", layout="wide")
+# --- 3. PREMIUM EXPANSION DESIGN (NAME: WAHBA EGX) ---
+st.set_page_config(page_title="WAHBA EGX Premium", layout="wide")
 
 st.markdown("""
     <style>
@@ -68,9 +68,9 @@ st.markdown("""
         background: linear-gradient(180deg, #0a0a0a 0%, #000000 100%);
         margin-bottom: 50px; 
     }
-    .logo-text { font-size: 55px; font-weight: 900; color: #fff; letter-spacing: 5px; text-transform: uppercase; }
+    .logo-text { font-size: 65px; font-weight: 900; color: #fff; letter-spacing: 8px; text-transform: uppercase; }
     .logo-text span { color: #d4af37; }
-    .sub-logo { color: #444; font-size: 14px; letter-spacing: 10px; margin-top: 10px; }
+    .sub-logo { color: #444; font-size: 14px; letter-spacing: 12px; margin-top: 10px; }
 
     .section-header { 
         color: #d4af37; border-right: 10px solid #d4af37; 
@@ -112,14 +112,16 @@ st.markdown("""
         font-size: 24px !important; letter-spacing: 3px !important;
     }
     
-    .legal-container { margin-top: 100px; padding: 60px; background: #020202; border: 1px solid #111; border-radius: 20px; }
-    .legal-header { color: #d4af37; font-size: 18px; font-weight: 900; letter-spacing: 3px; margin-bottom: 25px; text-transform: uppercase; }
-    .legal-text { color: #666; font-size: 13px; line-height: 1.8; text-align: justify; }
+    .legal-container { margin-top: 100px; padding: 60px; background: #020202; border: 1px solid #111; border-radius: 20px; direction: ltr; }
+    .legal-header { color: #d4af37; font-size: 18px; font-weight: 900; letter-spacing: 3px; margin-bottom: 25px; text-transform: uppercase; text-align: left; }
+    .legal-text { color: #666; font-size: 13px; line-height: 1.8; text-align: justify; margin-bottom: 30px; }
+    .legal-header-ar { color: #d4af37; font-size: 20px; font-weight: 900; margin-bottom: 20px; text-align: right; direction: rtl; }
+    .legal-text-ar { color: #666; font-size: 14px; line-height: 2; text-align: justify; direction: rtl; }
     .owner-signature { color: #fff; font-weight: bold; border-bottom: 1px solid #d4af37; }
     </style>
     
     <div class="nav-bar">
-        <div class="logo-text">WAHBA <span>INTELLIGENCE</span></div>
+        <div class="logo-text">WAHBA <span>EGX</span></div>
         <div class="sub-logo">INSTITUTIONAL QUANTITATIVE TERMINAL</div>
     </div>
 """, unsafe_allow_html=True)
@@ -211,29 +213,4 @@ if not data.empty:
                 <div class="stock-card" style="padding: 30px; border-top-width: 3px;">
                     <div style="display:flex; justify-content:space-between;">
                         <span style="font-size:30px; font-weight:900; color:#d4af37;">{row['Symbol']}</span>
-                        <span style="font-size:22px; font-weight:bold;">{row['Price']}</span>
-                    </div>
-                    <div style="margin-top:20px; padding-top:15px; border-top:1px solid #111; display:flex; justify-content:space-between;">
-                        <span style="color:#555; font-size:12px;">TARGET: {row['ai_target']}</span>
-                        <span style="color:#555; font-size:12px;">STOP: {row['stop_loss']}</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-# --- 6. LEGAL FORTRESS ---
-st.markdown("""
-    <div class="legal-container">
-        <div class="legal-header">Intellectual Property & Legal Disclaimer</div>
-        <div class="legal-text">
-            <b>PROPRIETARY RIGHTS NOTICE:</b> This software, including its unique algorithms, neural architecture, 
-            and quantitative models, is the exclusive intellectual property of <span class="owner-signature">Mostafa Tamer Ahmed El-Sayed</span>. 
-            All rights reserved. Any unauthorized duplication or reverse engineering is strictly prohibited.
-            <br><br>
-            <b>FINANCIAL DISCLAIMER:</b> AI predictions and risk parameters are for educational purposes only. 
-            Trading involves high risk, and the developer holds no liability for financial losses.
-        </div>
-        <div style="margin-top:40px; color:#222; font-size:10px; letter-spacing:5px; text-align:center;">
-            VERIFIED TERMINAL ID: WAHBA-AI-2026-ALEX
-        </div>
-    </div>
-""", unsafe_allow_html=True)
+                        <span style="font-size:22px; font-weight:bold;">{
