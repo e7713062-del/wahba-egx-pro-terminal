@@ -1,8 +1,7 @@
 streamlit
+tradingview_ta
 pandas
-tradingview-ta
 requests
 pytz
-scikit-learn
-plotly
 numpy
+scikit-learn
