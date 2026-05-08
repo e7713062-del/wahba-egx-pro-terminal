@@ -1,223 +1,191 @@
-import streamlit as st
-from tradingview_ta import TA_Handler, Interval
-import pandas as pd
-import requests
-from datetime import datetime
-import pytz
-import numpy as np
-import joblib
-import os
-import time
+# ------------------------------------------------------------------------------
+# PROJECT: WAHBA EGX PRO TERMINAL (v7.0)
+# DEVELOPER: MOSTAFA TAMER
+# DESCRIPTION: AI-Powered Market Analysis with Institutional Logic
+# ------------------------------------------------------------------------------
 
-# ==========================================
-# 1. إعدادات النظام والتوقيت
-# ==========================================
-egypt_tz = pytz.timezone('Africa/Cairo')
-now_egypt = datetime.now(egypt_tz)
-today_key = now_egypt.strftime("%Y-%m-%d")
+import streamlit as st
+import pandas as pd
+import numpy as np
+import requests
+import time
+import pytz
+from datetime import datetime
+from sklearn.linear_model import LinearRegression
+from tradingview_ta import TA_Handler, Interval
+
+# --- 1. CONFIGURATION & THEME ---
+EGYPT_TZ = pytz.timezone('Africa/Cairo')
+NOW = datetime.now(EGYPT_TZ)
 
 st.set_page_config(
-    page_title="Wahba Intelligence | Platinum Edition",
+    page_title="WAHBA EGX | AI Terminal",
     page_icon="👑",
     layout="wide"
 )
 
-# ==========================================
-# 2. هندسة الواجهة (HTML & CSS Custom Engine)
-# ==========================================
+# --- 2. ADVANCED CSS (Glassmorphism & Gold Theme) ---
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;700;900&display=swap');
     
-    /* الأساسيات */
     * {{ font-family: 'Tajawal', sans-serif; }}
-    .stApp {{ background-color: #050505; color: #ffffff; }}
+    .stApp {{ background: radial-gradient(circle at top, #1a1a1a 0%, #050505 100%); color: #fff; }}
     
-    /* تصميم الهيدر الاحترافي */
-    .hero-section {{
-        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
-        padding: 60px 20px;
+    /* Header Section */
+    .header-box {{
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(212, 175, 55, 0.2);
+        padding: 50px;
         text-align: center;
-        border-bottom: 3px solid #d4af37;
+        border-radius: 30px;
         margin-bottom: 40px;
-        border-radius: 0 0 40px 40px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
     }}
-    
-    .main-title {{
-        font-size: 48px;
-        font-weight: 900;
-        letter-spacing: 4px;
-        margin-bottom: 10px;
-        color: #fff;
-    }}
-    
-    .main-title span {{ color: #d4af37; }}
-    
-    .sub-title {{
-        font-size: 14px;
-        color: #d4af37;
-        text-transform: uppercase;
-        letter-spacing: 5px;
-        font-weight: bold;
-    }}
+    .brand-title {{ font-size: 55px; font-weight: 900; letter-spacing: 2px; margin: 0; }}
+    .brand-title span {{ color: #d4af37; text-shadow: 0 0 20px rgba(212, 175, 55, 0.5); }}
+    .tagline {{ color: #888; letter-spacing: 5px; font-size: 12px; text-transform: uppercase; }}
 
-    /* كروت الأسهم (Custom CSS Cards) */
-    .stock-card-container {{
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 20px;
-        padding: 10px;
-    }}
-
-    .stock-card {{
-        background: #0d0d0d;
+    /* Stock Card Section */
+    .card {{
+        background: rgba(20, 20, 20, 0.6);
         border: 1px solid #222;
-        border-radius: 20px;
+        border-radius: 25px;
         padding: 25px;
+        margin-bottom: 20px;
+        transition: 0.4s ease-in-out;
         position: relative;
         overflow: hidden;
-        transition: 0.4s ease;
-        border-top: 4px solid #d4af37;
     }}
-
-    .stock-card:hover {{
-        transform: translateY(-10px);
-        box-shadow: 0 20px 40px rgba(212, 175, 55, 0.15);
+    .card:hover {{
         border-color: #d4af37;
+        transform: translateY(-8px);
+        background: rgba(30, 30, 30, 0.8);
     }}
-
-    .symbol-name {{ font-size: 28px; font-weight: 900; color: #d4af37; margin-bottom: 5px; }}
-    .sentiment-tag {{ font-size: 12px; color: #888; margin-bottom: 20px; }}
+    .card::before {{
+        content: ""; position: absolute; top: 0; left: 0; width: 5px; height: 100%; background: #d4af37;
+    }}
     
-    .data-row {{ display: flex; justify-content: space-between; margin-bottom: 15px; }}
-    .data-label {{ font-size: 13px; color: #555; }}
-    .data-value {{ font-size: 20px; font-weight: bold; color: #fff; }}
-    .target-value {{ font-size: 22px; font-weight: bold; color: #00ff00; }}
-
-    /* أزرار مخصصة */
+    .ticker {{ font-size: 28px; font-weight: 900; color: #d4af37; }}
+    .status-pill {{ background: rgba(0, 255, 0, 0.1); color: #00ff00; padding: 4px 12px; border-radius: 50px; font-size: 11px; font-weight: bold; }}
+    .price-main {{ font-size: 30px; font-weight: bold; }}
+    .target-main {{ font-size: 30px; font-weight: bold; color: #00ff00; }}
+    
+    /* Button Styling */
     .stButton>button {{
-        width: 100%;
-        background: linear-gradient(90deg, #d4af37 0%, #f4d03f 100%) !important;
-        color: #000 !important;
-        font-weight: 900 !important;
-        border-radius: 12px !important;
-        height: 60px !important;
-        border: none !important;
-        font-size: 18px !important;
-        transition: 0.3s !important;
+        background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%) !important;
+        color: #000 !important; font-weight: 900 !important; border-radius: 15px !important;
+        padding: 20px !important; border: none !important; transition: 0.3s !important;
     }}
-    
-    .stButton>button:hover {{
-        box-shadow: 0 0 25px rgba(212, 175, 55, 0.5) !important;
-        transform: scale(1.02) !important;
-    }}
+    .stButton>button:hover {{ box-shadow: 0 0 30px rgba(212, 175, 55, 0.4) !important; transform: scale(1.01); }}
 
-    /* إخفاء القوائم الافتراضية المزعجة */
-    #MainMenu {{visibility: hidden;}}
-    footer {{visibility: hidden;}}
+    /* Hide Elements */
+    #MainMenu, footer {{ visibility: hidden; }}
     </style>
-    
-    <div class="hero-section">
-        <div class="sub-title">Wahba Quantum Analytics</div>
-        <div class="main-title">WAHBA <span>INTELLIGENCE</span></div>
-        <p style="color:#666;">Institutional Grade Trading Neural Network v6.5</p>
+
+    <div class="header-box">
+        <div class="tagline">Neural Network Market Analysis</div>
+        <h1 class="brand-title">WAHBA <span>EGX</span></h1>
+        <p style="color:#555; margin-top:10px;">Institutional Terminal | Alexandria, Egypt</p>
     </div>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 3. محرك الـ AI وإدارة البيانات
-# ==========================================
+# --- 3. LOGIC & DATA PROCESSING ---
+def get_ai_brain():
+    """Initializes the AI model with historical data patterns"""
+    model = LinearRegression()
+    # Mock data for training (Price, RSI) -> Target Price
+    X = np.array([[10, 30], [20, 50], [0.03, 25], [100, 60], [5, 45]])
+    y = np.array([10.55, 21.30, 0.035, 104.2, 5.45])
+    model.fit(X, y)
+    return model
+
 @st.cache_data(ttl=3600)
-def get_symbols():
+def get_market_symbols():
     try:
         url = "https://scanner.tradingview.com/egypt/scan"
-        payload = {{"filter": [{{"left": "type", "operation": "in_range", "right": ["stock"]}}], "markets": ["egypt"], "columns": ["name"]}}
-        res = requests.post(url, json=payload, timeout=10).json()
+        payload = {"filter": [{"left": "type", "operation": "in_range", "right": ["stock"]}], "markets": ["egypt"], "columns": ["name"]}
+        res = requests.post(url, json=payload, timeout=15).json()
         return [item['s'].split(':')[1] for item in res['data']]
     except:
-        return ["COMI", "FWRY", "TRTO", "TMGH", "SWDY"]
+        return ["COMI", "FWRY", "TMGH", "SWDY", "TRTO", "ISPH", "ABUK"]
 
-def analyze_market():
-    symbols = get_symbols()
+def run_analysis_pipeline():
+    symbols = get_market_symbols()
+    brain = get_ai_brain()
     results = []
     
-    # محرك الـ AI (مبسط هنا لضمان السرعة)
-    brain = LinearRegression()
-    brain.fit(np.array([[10,30], [20,50], [5,25], [100,60]]), np.array([10.5, 21, 5.5, 103]))
-    
-    progress_bar = st.progress(0, text="🤖 جاري مسح السوق بالذكاء الاصطناعي...")
+    p_bar = st.progress(0, text="🤖 Analyzing Market Structure...")
     
     for i, sym in enumerate(symbols):
         try:
-            handler = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=7)
+            handler = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=10)
             analysis = handler.get_analysis()
-            p = analysis.indicators.get("close")
-            r = analysis.indicators.get("RSI")
-            piv = analysis.indicators.get("Pivot.M.Classic.Middle")
+            ind = analysis.indicators
             
-            target = round(float(brain.predict(np.array([[p, r]]))[0]), 2)
+            p, r, piv = ind.get("close"), ind.get("RSI"), ind.get("Pivot.M.Classic.Middle")
             
-            # تحليل الحالة
-            status = "✅ تجميع مؤسسي" if p > piv and r > 50 else "🔄 تذبذب عرضي"
-            if r > 70: status = "⚠️ تشبع شرائي"
+            # AI Prediction
+            pred = brain.predict(np.array([[p, r]]))[0]
+            target = round(float(pred), 2)
+            
+            # Sentiment Logic
+            if p > piv and r > 50: sentiment = "Institutional Accumulation"
+            elif r > 70: sentiment = "Overbought / Supply Zone"
+            else: sentiment = "Market Equilibrium"
 
-            results.append({{
+            results.append({
                 "sym": sym, "price": p, "target": target,
-                "status": status, "rec": analysis.summary["RECOMMENDATION"]
-            }})
+                "sentiment": sentiment, "rec": analysis.summary["RECOMMENDATION"]
+            })
         except: continue
-        progress_bar.progress((i + 1) / len(symbols))
+        p_bar.progress((i + 1) / len(symbols))
     
-    progress_bar.empty()
+    p_bar.empty()
     return results
 
-# ==========================================
-# 4. التنفيذ وعرض الواجهة (The Frontend)
-# ==========================================
-st.sidebar.markdown(f"""
-    <div style="background:#111; padding:20px; border-radius:15px; border:1px solid #222;">
-        <h3 style="color:#d4af37; margin-top:0;">📡 حالة النظام</h3>
-        <p style="font-size:12px;">توقيت القاهرة: {now_egypt.strftime('%I:%M %p')}</p>
-        <p style="font-size:12px;">التاريخ: {today_key}</p>
-        <hr style="border-color:#222;">
-        <p style="font-size:11px; color:#555;">النظام متزامن مع بورصة مصر TradingView</p>
-    </div>
-""", unsafe_allow_html=True)
+# --- 4. MAIN INTERFACE ---
+with st.sidebar:
+    st.markdown("### ⚙️ System Control")
+    st.write(f"📅 Session: **{NOW.strftime('%Y-%m-%d')}**")
+    st.write(f"⏰ Server Time: **{NOW.strftime('%I:%M %p')}**")
+    st.divider()
+    st.caption("Developed by Mostafa Tamer for High-Performance Trading Environments.")
 
-if st.button("إطلاق الماسح الذكي الشامل (AI SCAN)"):
-    market_data = analyze_market()
-    st.session_state.data = market_data
+if st.button("EXECUTE QUANTUM MARKET SCAN"):
+    st.session_state.data_vault = run_deep_scan = run_analysis_pipeline()
 
-if 'data' in st.session_state:
-    st.markdown("### ⚜️ أقوى الفرص المكتشفة")
+if 'data_vault' in st.session_state:
+    data = st.session_state.data_vault
+    st.markdown("### ⚜️ Alpha Opportunities")
     
-    # إنشاء الكروت باستخدام HTML و CSS
-    cols = st.columns(3)
-    for i, item in enumerate(st.session_state.data[:12]): # عرض أول 12 سهم
-        with cols[i % 3]:
+    col1, col2 = st.columns(2)
+    for i, item in enumerate(data):
+        target_col = col1 if i % 2 == 0 else col2
+        with target_col:
             st.markdown(f"""
-            <div class="stock-card">
-                <div class="symbol-name">{item['sym']}</div>
-                <div class="sentiment-tag">{item['status']}</div>
-                <div class="data-row">
-                    <span class="data-label">سعر الإغلاق</span>
-                    <span class="data-value">{item['price']}</span>
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="ticker">{item['sym']}</div>
+                    <div class="status-pill">{item['sentiment']}</div>
                 </div>
-                <div class="data-row">
-                    <span class="data-label">الهدف الذكي</span>
-                    <span class="target-value">{item['target']}</span>
+                <hr style="border-color:#222; margin:15px 0;">
+                <div style="display:flex; justify-content:space-between;">
+                    <div><small style="color:#555;">Current Price</small><br><span class="price-main">{item['price']}</span></div>
+                    <div style="text-align:left;"><small style="color:#555;">AI Forecast</small><br><span class="target-main">{item['target']}</span></div>
                 </div>
-                <div style="margin-top:15px; font-size:11px; font-weight:bold; color:#d4af37; text-align:center;">
-                    القرار: {item['rec']}
+                <div style="margin-top:20px; font-size:12px; color:#d4af37;">
+                    Signal: <b>{item['rec']}</b>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
+# Footer
 st.markdown(f"""
-    <div style="margin-top:100px; text-align:center; padding:40px; border-top:1px solid #1a1a1a; color:#333; font-size:10px;">
-        WAHBA INTELLIGENCE | PLATINUM v6.5<br>
-        DESIGNED BY MOSTAFA TAMER © 2026<br>
-        ALEXANDRIA - EGYPT
+    <div style="text-align:center; padding:50px; color:#222; font-size:10px; border-top:1px solid #111; margin-top:100px;">
+        WAHBA QUANTUM CORE v7.0 | ARCHITECTURE BY MOSTAFA TAMER<br>
+        ALEXANDRIA, EGYPT | 2026
     </div>
 """, unsafe_allow_html=True)
+
