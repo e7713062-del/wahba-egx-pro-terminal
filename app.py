@@ -8,44 +8,25 @@ from datetime import datetime
 import pytz
 
 # ==========================================
-# 1. LEGAL & IP CONFIGURATION (Mustafa Tamer)
+# 1. LEGAL & IP TERMINAL (Mustafa Tamer)
 # ==========================================
 OWNER = "MUSTAFA TAMER"
-SYSTEM_NAME = "WAHBA EGX" # الاسم المطلوب
-LEGAL_DISCLAIMER_EN = f"""
-© {datetime.now().year} {OWNER}. All Rights Reserved. 
-The {SYSTEM_NAME} terminal and its proprietary algorithms are protected under international IP laws. 
-Unauthorized reverse engineering, redistribution, or derivation is strictly prohibited.
+SYSTEM_NAME = "WAHBA EGX"
+LEGAL_EN = f"""
+LEGAL NOTICE: © {datetime.now().year} {OWNER}. All Rights Reserved. 
+This terminal and its underlying logic are protected under international intellectual property treaties. 
+Any attempt to decompile, scrape, or replicate the algorithms of {SYSTEM_NAME} will result in legal action.
 """
-LEGAL_DISCLAIMER_AR = f"""
-جميع الحقوق محفوظة © {datetime.now().year} للمالك {OWNER}.
+LEGAL_AR = f"""
+إخطار قانوني: جميع الحقوق محفوظة © {datetime.now().year} للمالك {OWNER}.
 نظام {SYSTEM_NAME} وخوارزمياته محمية بموجب قوانين الملكية الفكرية الدولية.
-يحظر تماماً إعادة الهندسة العكسية أو الاقتباس أو التوزيع غير القانوني.
+أي محاولة لفك شفرة الكود أو استخراج البيانات أو تقليد المنطق الحسابي ستعرض صاحبها للملاحقة القانونية الصارمة.
 """
 
 # ==========================================
-# 2. PROPRIETARY CORE (Hidden Logic)
-# ==========================================
-class QuantumEngine:
-    @staticmethod
-    def _compute_vectors(d):
-        # Confidential logic - Vector calculation
-        _p, _r, _s, _c = d['P'], d['R1'], d['S1'], d['Price']
-        target = np.round(_p + (_r - _p) * 1.618, 2)
-        sl = np.round(_s * 0.99, 2)
-        roi = np.round(((target - _c) / _c) * 100, 1)
-        return target, sl, roi
-
-# ==========================================
-# 3. DATA ARCHITECTURE
+# 2. DATA ARCHITECTURE
 # ==========================================
 def get_institutional_data():
-    EGYPT_TZ = pytz.timezone('Africa/Cairo')
-    DB_FILE = f"wahba_data_{datetime.now(EGYPT_TZ).strftime('%Y%m%d')}.csv"
-    
-    if os.path.exists(DB_FILE):
-        return pd.read_csv(DB_FILE)
-    
     try:
         scanner_url = "https://scanner.tradingview.com/egypt/scan"
         payload = {"filter": [{"left": "market_cap_basic", "operation": "nempty"}],
@@ -54,7 +35,7 @@ def get_institutional_data():
         symbols = [i['s'].split(':')[1] for i in res['data'] if ":" in i['s']]
         
         results = []
-        for sym in symbols[:45]: 
+        for sym in symbols[:40]: 
             try:
                 h = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", 
                                interval=Interval.INTERVAL_1_DAY, timeout=5)
@@ -64,84 +45,105 @@ def get_institutional_data():
                     "P": ind["Pivot.M.Classic.Middle"], "R1": ind["Pivot.M.Classic.R1"], "S1": ind["Pivot.M.Classic.S1"]
                 })
             except: continue
-            
-        df = pd.DataFrame(results)
-        if not df.empty: df.to_csv(DB_FILE, index=False)
-        return df
+        return pd.DataFrame(results)
     except: return pd.DataFrame()
 
 # ==========================================
-# 4. HIGH-END UI DESIGN (Enterprise Style)
+# 3. ADVANCED UI (New Typography & Layout)
 # ==========================================
-st.set_page_config(page_title=f"{SYSTEM_NAME} PRO | {OWNER}", layout="wide")
+st.set_page_config(page_title=f"{SYSTEM_NAME} | {OWNER}", layout="wide")
 
+# تغيير الخطوط لخطوط مؤسسية قوية
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Montserrat:wght@400;800&display=swap');
     
-    .stApp { background-color: #050505; color: #ffffff; }
-    
-    h1, h2, h3 { font-family: 'Orbitron', sans-serif; letter-spacing: 2px; }
-    p, div { font-family: 'Inter', sans-serif; }
+    html, body, [class*="css"] {
+        font-family: 'Cairo', 'Montserrat', sans-serif;
+        background-color: #050505;
+        color: #ffffff;
+    }
 
     .main-header {
+        background: #000;
+        border-bottom: 2px solid #D4AF37;
+        padding: 60px 20px;
         text-align: center;
-        padding: 50px 20px;
-        background: linear-gradient(180deg, #111 0%, #050505 100%);
-        border-bottom: 1px solid #222;
-        margin-bottom: 40px;
+        margin-bottom: 50px;
     }
 
-    .gold-text { color: #D4AF37; }
-    
-    .quant-card {
-        background: #0a0a0a;
-        border: 1px solid #1a1a1a;
-        padding: 25px;
-        border-radius: 2px;
-        transition: 0.3s all ease-in-out;
+    .legal-alert {
+        background: rgba(212, 175, 55, 0.05);
+        border: 1px solid #D4AF37;
+        padding: 30px;
+        border-radius: 5px;
+        margin-bottom: 40px;
+        text-align: center;
     }
-    
+
+    .quant-card {
+        background: #0d0d0d;
+        border: 1px solid #1a1a1a;
+        padding: 30px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        transition: 0.3s;
+    }
+
     .quant-card:hover {
         border-color: #D4AF37;
-        box-shadow: 0 0 15px rgba(212, 175, 55, 0.05);
+        transform: translateY(-5px);
     }
 
-    .legal-box {
-        font-size: 11px;
-        color: #333;
-        text-align: center;
-        margin-top: 120px;
+    .footer {
+        background: #000;
         padding: 40px;
-        border-top: 1px solid #111;
-        background: #020202;
+        margin-top: 100px;
+        border-top: 1px solid #1a1a1a;
+        font-size: 12px;
+        color: #444;
+        text-align: center;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. EXECUTION TERMINAL
+# 4. EXECUTION TERMINAL
 # ==========================================
 def main():
+    # بوابة الحماية القانونية (Gatekeeper)
+    if 'authorized' not in st.session_state:
+        st.markdown(f"<h1 style='text-align:center; color:#D4AF37; font-family:Montserrat;'>{SYSTEM_NAME} TERMINAL</h1>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="legal-alert">
+            <p style="color:#D4AF37; font-weight:bold; font-size:18px;">LEGAL DISCLOSURE / إقرار قانوني</p>
+            <p style="font-size:14px; color:#aaa;">{LEGAL_EN}</p>
+            <hr style="border-color:#222">
+            <p style="font-size:14px; color:#aaa; direction:rtl;">{LEGAL_AR}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("I ACCEPT THE TERMS & CONDITIONS / أوافق على الشروط", use_container_広告=True):
+            st.session_state.authorized = True
+            st.rerun()
+        return
+
     # Header
     st.markdown(f"""
     <div class="main-header">
-        <h1 style="margin:0; font-size: 3.5rem;">{SYSTEM_NAME} <span class="gold-text">PRO</span></h1>
-        <p style="color: #555; text-transform: uppercase; font-size: 11px; letter-spacing: 3px; margin-top:15px;">
-            Proprietary Trading Terminal • Developed by <b>{OWNER}</b>
-        </p>
+        <h1 style="font-family:Montserrat; font-weight:800; font-size:4rem; margin:0;">{SYSTEM_NAME} <span style="color:#D4AF37;">EG</span></h1>
+        <p style="color:#555; letter-spacing:5px;">INSTITUTIONAL QUANTUM TERMINAL BY {OWNER}</p>
     </div>
     """, unsafe_allow_html=True)
 
-    # Core Engine Execution
-    with st.spinner(f"AUTHENTICATING {SYSTEM_NAME} QUANTUM CORE..."):
+    with st.spinner("DECRYPTING MARKET VECTORS..."):
         df = get_institutional_data()
 
     if not df.empty:
-        # Secure Calculation
-        df[['Target', 'SL', 'ROI']] = df.apply(lambda r: pd.Series(QuantumEngine._compute_vectors(r)), axis=1)
+        # خوارزمية مشفرة (Internal Vectors)
+        df['T'] = np.round(df['P'] + (df['R1'] - df['P']) * 1.618, 2)
+        df['ROI'] = np.round(((df['T'] - df['Price']) / df['Price']) * 100, 1)
         
-        # Grid Display (Top ROI Signals)
         signals = df[df['Score'] >= 5].sort_values(by='ROI', ascending=False).head(12)
         
         cols = st.columns(3)
@@ -149,32 +151,26 @@ def main():
             with cols[i % 3]:
                 st.markdown(f"""
                 <div class="quant-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size: 1.4rem; font-weight: bold; color:#fff;">{row['Symbol']}</span>
-                        <div style="width:10px; height:10px; background:#00ffaa; border-radius:50%; box-shadow: 0 0 5px #00ffaa;"></div>
+                    <h2 style="margin:0; font-family:Montserrat;">{row['Symbol']}</h2>
+                    <p style="color:#444; font-size:12px;">ASSET SECURED BY {OWNER.split()[0]}</p>
+                    <div style="background:#000; padding:20px; margin:20px 0; border-left:4px solid #D4AF37;">
+                        <small style="color:#D4AF37;">TARGET VECTOR</small>
+                        <div style="font-size:32px; font-weight:bold; color:#00ffaa;">{row['T']}</div>
+                        <div style="color:#00ffaa; font-size:14px;">+{row['ROI']}% POTENTIAL</div>
                     </div>
-                    <div style="margin: 25px 0;">
-                        <span style="color: #444; font-size: 11px; display:block;">MARKET PRICE</span>
-                        <span style="font-size: 22px; font-weight: 600;">{row['Price']} <small style="font-size:12px; color:#444;">EGP</small></span>
-                    </div>
-                    <div style="background: #000; padding: 20px; border: 1px solid #1a1a1a;">
-                        <span style="color: #D4AF37; font-size: 10px; font-weight: bold; display:block; margin-bottom:5px;">INSTITUTIONAL TARGET</span>
-                        <span style="font-size: 28px; font-weight: bold; color: #00ffaa;">{row['Target']}</span>
-                        <div style="color: #00ffaa; font-size: 13px; margin-top:5px;">+ {row['ROI']}% Projected Yield</div>
-                    </div>
-                    <div style="margin-top: 20px; color: #611; font-size: 11px; font-weight:bold;">
-                        PROTECTION STOP: {row['SL']}
+                    <div style="font-size:14px; color:#666;">
+                        ENTRY: {row['Price']} EGP
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-    else:
-        st.error("System Offline. Interface cannot reach the secure server.")
-
-    # Footer
+    
+    # Footer - الملكية الفكرية
     st.markdown(f"""
-    <div class="legal-box">
-        <div style="margin-bottom: 10px;">{LEGAL_DISCLAIMER_EN}</div>
-        <div style="direction: rtl;">{LEGAL_DISCLAIMER_AR}</div>
+    <div class="footer">
+        {LEGAL_EN}<br><br>
+        <div style="direction:rtl;">{LEGAL_AR}</div>
+        <br>
+        <p style="color:#D4AF37; font-weight:bold;">BY {OWNER}</p>
     </div>
     """, unsafe_allow_html=True)
 
