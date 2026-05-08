@@ -1,4 +1,6 @@
 streamlit
 tradingview-ta
 pandas
+numpy
 requests
+scikit-learn
