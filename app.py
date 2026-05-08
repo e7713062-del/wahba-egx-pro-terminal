@@ -6,15 +6,15 @@ import requests
 from datetime import datetime
 
 # ==========================================
-# 1. INSTITUTIONAL IDENTITY
+# 1. INSTITUTIONAL IDENTITY - CORRECTED NAME
 # ==========================================
 CORP_NAME = "WAHBA QUANTITATIVE SOLUTIONS"
-FOUNDER = "MUSTAFA TAMER"
+FOUNDER = "MUSTAFA TAMER"  # التعديل هنا
 SYSTEM_NAME = "WAHBA EGX PRO"
 VERSION = "INSTITUTIONAL v5.2.1"
 
 # ==========================================
-# 2. DATA ENGINE (FIXED IMPORT ISSUES)
+# 2. CORE DATA ENGINE
 # ==========================================
 def get_market_data():
     try:
@@ -39,49 +39,52 @@ def get_market_data():
     except: return pd.DataFrame()
 
 # ==========================================
-# 3. LUXURY & CORPORATE UI (FIXED RENDERING)
+# 3. FIXED LUXURY UI (NAME ALIGNMENT)
 # ==========================================
 st.set_page_config(page_title=f"{SYSTEM_NAME} | {FOUNDER}", layout="wide")
 
-# CSS لإصلاح الترتيب والشكل الفخم
-st.markdown("""
+st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;700&family=Cinzel:wght@400;700&family=Montserrat:wght@200;400;800&display=swap');
     
-    .stApp { background: #020202; color: #f0f0f0; }
-    h1, h2, .luxury-font { font-family: 'Cinzel', serif; letter-spacing: 4px; }
-    body, p, div { font-family: 'Montserrat', 'Cairo', sans-serif; }
+    .stApp {{ background: #020202; color: #f0f0f0; }}
+    h1, h2, .luxury-font {{ font-family: 'Cinzel', serif; letter-spacing: 4px; }}
+    body, p, div {{ font-family: 'Montserrat', 'Cairo', sans-serif; }}
 
-    .header-box {
+    .header-box {{
         background: linear-gradient(90deg, #000 0%, #0a0a0a 100%);
         padding: 40px; border-bottom: 2px solid #D4AF37; margin-bottom: 30px;
-    }
+    }}
 
-    .status-bar {
+    .status-bar {{
         display: flex; justify-content: space-around;
         background: #000; border: 1px solid #111; padding: 10px;
         margin-bottom: 30px; font-size: 10px; color: #555; text-transform: uppercase;
-    }
+    }}
 
-    .asset-card {
+    .asset-card {{
         background: #080808; border: 1px solid #1a1a1a; padding: 25px;
         margin-bottom: 20px; border-left: 3px solid #D4AF37;
-    }
+    }}
 
-    .target-val { font-size: 30px; font-weight: 800; color: #00ffaa; margin: 10px 0; }
+    .target-val {{ font-size: 30px; font-weight: 800; color: #00ffaa; margin: 10px 0; }}
     
-    .footer {
+    .founder-text {{
+        color: #D4AF37; font-weight: 800; margin: 0; font-size: 1.2rem;
+        white-space: nowrap; /* يمنع نزول الاسم لسطر جديد */
+    }}
+
+    .footer {{
         padding: 60px; text-align: center; border-top: 1px solid #111;
         font-size: 11px; color: #333; line-height: 1.8;
-    }
+    }}
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. EXECUTION
+# 4. EXECUTION FLOW
 # ==========================================
 def main():
-    # بوابة الدخول المؤسسية
     if 'auth' not in st.session_state:
         st.markdown(f"""
         <div style="text-align:center; padding:100px 20px;">
@@ -93,13 +96,12 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        # تصحيح الزر (Fixed TypeError)
         if st.button("INITIALIZE SECURE SESSION", use_container_width=True):
             st.session_state.auth = True
             st.rerun()
         return
 
-    # الهيدر المؤسسي (Fixed Rendering)
+    # تم تعديل عرض الاسم هنا ليكون في سطر واحد وواضح
     st.markdown(f"""
     <div class="header-box">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -108,8 +110,8 @@ def main():
                 <h1 style="font-size:2.5rem; margin:5px 0;">{SYSTEM_NAME}</h1>
             </div>
             <div style="text-align:right;">
-                <p style="color:#555; font-size:10px; margin:0;">MASTER OPERATOR</p>
-                <p style="color:#D4AF37; font-weight:bold; margin:0;">{FOUNDER}</p>
+                <p style="color:#555; font-size:10px; margin:0; letter-spacing:2px;">MASTER OPERATOR</p>
+                <p class="founder-text">{FOUNDER}</p>
             </div>
         </div>
     </div>
@@ -119,6 +121,7 @@ def main():
     <div class="status-bar">
         <span>● DATA CLUSTER: ACTIVE</span>
         <span>● RISK ALGO: OPERATIONAL</span>
+        <span>● NODE: LONDON-SECURE</span>
         <span>● VERSION: {VERSION}</span>
     </div>
     """, unsafe_allow_html=True)
@@ -151,12 +154,11 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
 
-    # الفوتر المؤسسي
     st.markdown(f"""
     <div class="footer">
         <p style="color:#D4AF37; letter-spacing:3px;">{CORP_NAME}</p>
         © {datetime.now().year} {FOUNDER} & PARTNERS. ALL RIGHTS RESERVED.<br>
-        TRADING INVOLVES SIGNIFICANT RISK. SYSTEM OPERATED UNDER INSTITUTIONAL LICENSE.
+        SYSTEM OPERATED UNDER INSTITUTIONAL LICENSE. CAPITAL AT RISK.
     </div>
     """, unsafe_allow_html=True)
 
