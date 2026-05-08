@@ -52,7 +52,7 @@ class AI_Risk_Engine:
         rr_ratio = round(reward / risk, 2) if risk != 0 else 0
         return stop_loss, f"1:{rr_ratio}"
 
-# --- 3. PREMIUM EXPANSION DESIGN ---
+# --- 3. UI/UX DESIGN (THE TERMINAL LOOK) ---
 st.set_page_config(page_title="WAHBA EGX Premium", layout="wide")
 
 st.markdown("""
@@ -60,7 +60,8 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
     * { font-family: 'Tajawal', sans-serif; }
     .stApp { background-color: #000000; color: #ffffff; }
-    .block-container { padding-top: 2rem; padding-bottom: 5rem; max-width: 95%; }
+    
+    /* Header */
     .nav-bar { 
         text-align: center; padding: 60px 20px; 
         border-bottom: 4px solid #d4af37; 
@@ -70,6 +71,8 @@ st.markdown("""
     .logo-text { font-size: 65px; font-weight: 900; color: #fff; letter-spacing: 8px; text-transform: uppercase; }
     .logo-text span { color: #d4af37; }
     .sub-logo { color: #444; font-size: 14px; letter-spacing: 12px; margin-top: 10px; }
+
+    /* Cards & Tiers */
     .section-header { 
         color: #d4af37; border-right: 10px solid #d4af37; 
         padding-right: 25px; margin: 60px 0 30px 0; 
@@ -82,26 +85,32 @@ st.markdown("""
     .symbol-name { font-size: 45px; font-weight: 900; color: #d4af37; line-height: 1; }
     .price-val { font-size: 35px; font-weight: bold; color: #fff; margin: 15px 0; }
     .signal-badge { font-size: 18px; font-weight: 900; color: #d4af37; border: 1px solid #d4af37; padding: 5px 20px; border-radius: 50px; }
+
+    /* Risk Box */
     .risk-box { background: #000; border: 1px solid #111; padding: 30px; border-radius: 15px; margin: 30px 0; }
     .risk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; text-align: center; }
-    .risk-label { font-size: 12px; color: #555; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; display: block; }
+    .risk-label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 2px; }
     .risk-data { font-size: 22px; font-weight: 900; color: #fff; }
     .risk-highlight { color: #d4af37; }
     .risk-stop { color: #ff4b4b; }
-    .levels-grid { display: flex; justify-content: space-around; margin-top: 30px; background: #0a0a0a; padding: 25px; border-radius: 15px; border: 1px solid #111; }
-    .level-item { text-align: center; flex: 1; }
-    .label { font-size: 12px; color: #444; display: block; margin-bottom: 5px; font-weight: bold; }
+
+    /* Levels */
+    .levels-grid { display: flex; justify-content: space-around; background: #0a0a0a; padding: 25px; border-radius: 15px; border: 1px solid #111; }
     .num { font-size: 20px; font-weight: 900; color: #d4af37; font-family: monospace; }
+
+    /* Button */
     .stButton>button { 
         background: #d4af37 !important; color: #000 !important; 
         font-weight: 900 !important; border-radius: 15px !important; 
         height: 100px !important; width: 100% !important; border: none !important;
         font-size: 24px !important; letter-spacing: 3px !important;
     }
-    .legal-container { margin-top: 100px; padding: 60px; background: #020202; border: 1px solid #111; border-radius: 20px; direction: ltr; }
-    .legal-header { color: #d4af37; font-size: 18px; font-weight: 900; letter-spacing: 3px; margin-bottom: 25px; text-transform: uppercase; text-align: left; }
-    .legal-text { color: #666; font-size: 13px; line-height: 1.8; text-align: justify; margin-bottom: 30px; }
-    .legal-header-ar { color: #d4af37; font-size: 20px; font-weight: 900; margin-bottom: 20px; text-align: right; direction: rtl; }
+    
+    /* Legal Section */
+    .legal-container { margin-top: 100px; padding: 60px; background: #020202; border: 1px solid #111; border-radius: 20px; }
+    .legal-header { color: #d4af37; font-size: 18px; font-weight: 900; letter-spacing: 3px; margin-bottom: 25px; text-transform: uppercase; }
+    .legal-text { color: #666; font-size: 13px; line-height: 1.8; text-align: justify; }
+    .legal-header-ar { color: #d4af37; font-size: 20px; font-weight: 900; margin: 25px 0; text-align: right; direction: rtl; }
     .legal-text-ar { color: #666; font-size: 14px; line-height: 2; text-align: justify; direction: rtl; }
     .owner-signature { color: #fff; font-weight: bold; border-bottom: 1px solid #d4af37; }
     </style>
@@ -112,7 +121,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- 4. DATA ENGINE ---
+# --- 4. DATA LOGIC ---
 WahbaVault.init_db()
 
 @st.cache_data(ttl=86400)
@@ -138,8 +147,10 @@ def run_strategic_scan():
             elif "BUY" in rec: score += 3
             if ind.get("RSI") and 50 <= ind.get("RSI") <= 68: score += 3
             if ind.get("close") > ind.get("Pivot.M.Classic.Middle"): score += 2
+            
             ai_target = AI_Risk_Engine.predict(ind.get("close"), score)
             stop_loss, rr_ratio = AI_Risk_Engine.calculate_risk(ind.get("close"), ai_target)
+            
             results.append({
                 "Symbol": sym, "Price": round(ind.get("close"), 2), "Score": score,
                 "S1": round(ind.get("Pivot.M.Classic.S1"), 2), "P": round(ind.get("Pivot.M.Classic.Middle"), 2),
@@ -153,7 +164,7 @@ def run_strategic_scan():
     WahbaVault.save_data(df)
     return df
 
-# --- 5. DISPLAY ENGINE ---
+# --- 5. MAIN DISPLAY ---
 if st.button('GENERATE AND ARCHIVE GOLDEN REPORT'):
     run_strategic_scan()
     st.success("VAULT SYNCHRONIZED")
@@ -167,30 +178,43 @@ if not data.empty:
         for _, row in t1.iterrows():
             st.markdown(f"""
             <div class="stock-card">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div style="display:flex; justify-content:space-between;">
                     <div><div class="symbol-name">{row['Symbol']}</div><div class="price-val">{row['Price']} EGP</div></div>
                     <span class="signal-badge">{row['Signal']}</span>
                 </div>
                 <div class="risk-box">
                     <div class="risk-grid">
-                        <div><span class="risk-label">AI Target</span><span class="risk-data risk-highlight">{row['ai_target']}</span></div>
-                        <div><span class="risk-label">Stop Loss</span><span class="risk-data risk-stop">{row['stop_loss']}</span></div>
-                        <div><span class="risk-label">Risk Reward</span><span class="risk-data">{row['risk_reward']}</span></div>
+                        <div><div class="risk-label">AI Target</div><div class="risk-data risk-highlight">{row['ai_target']}</div></div>
+                        <div><div class="risk-label">Stop Loss</div><div class="risk-data risk-stop">{row['stop_loss']}</div></div>
+                        <div><div class="risk-label">Risk/Reward</div><div class="risk-data">{row['risk_reward']}</div></div>
                     </div>
+                </div>
+                <div class="levels-grid">
+                    <div style="text-align:center"><small style="color:#444">PIVOT</small><br><span class="num">{row['P']}</span></div>
+                    <div style="text-align:center"><small style="color:#444">R1</small><br><span class="num">{row['R1']}</span></div>
                 </div>
             </div>""", unsafe_allow_html=True)
 
-# --- 6. LEGAL FORTRESS ---
+# --- 6. FIXED LEGAL FORTRESS ---
 st.markdown("""
     <div class="legal-container">
-        <div class="legal-header">Intellectual Property</div>
+        <div class="legal-header">Intellectual Property & Legal Disclaimer</div>
         <div class="legal-text">
             <b>PROPRIETARY RIGHTS NOTICE:</b> This terminal, known as <b>WAHBA EGX</b>, 
-            is the exclusive property of <span class="owner-signature">Mostafa Tamer Ahmed El-Sayed</span>.
+            is the exclusive intellectual property of <span class="owner-signature">Mostafa Tamer Ahmed El-Sayed</span>. 
+            Any unauthorized duplication or reverse engineering is strictly prohibited.
+            <br><br>
+            <b>FINANCIAL DISCLAIMER:</b> AI predictions provided by WAHBA EGX are for informational purposes only. 
+            Trading involves high risk, and the developer holds no liability for financial losses.
         </div>
-        <div class="legal-header-ar">الملكية الفكرية</div>
+        <hr style="border:0; border-top:1px solid #1a1a1a; margin:30px 0;">
+        <div class="legal-header-ar">الملكية الفكرية وإخلاء المسؤولية القانونية</div>
         <div class="legal-text-ar">
-            <b>إخطار حقوق الملكية:</b> منصة <b>WAHBA EGX</b> ملكية حصرية لـ <span class="owner-signature">مصطفى تامر أحمد السيد</span>.
+            تعتبر منصة <b>WAHBA EGX</b> ملكية فكرية حصرية لـ <span class="owner-signature">مصطفى تامر أحمد السيد</span>. 
+            يُمنع منعاً باتاً أي نسخ غير مصرح به. التوقعات الناتجة هي لأغراض تعليمية فقط ولا يتحمل المطور مسؤولية أي خسائر مالية.
+        </div>
+        <div style="margin-top:40px; color:#222; font-size:10px; letter-spacing:5px; text-align:center;">
+            VERIFIED TERMINAL ID: WAHBA-EGX-2026-ALEX
         </div>
     </div>
 """, unsafe_allow_html=True)
