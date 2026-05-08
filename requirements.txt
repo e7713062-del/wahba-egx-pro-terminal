@@ -1,6 +1,6 @@
-streamlit>=1.30.0
-tradingview-ta>=3.3.0
+streamlit
+tradingview-ta
 pandas
 numpy
-requests
 scikit-learn
+requests
