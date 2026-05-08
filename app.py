@@ -8,158 +8,173 @@ from datetime import datetime
 import pytz
 
 # ==========================================
-# 1. نظام الحماية والملكية الفكرية (Legal & IP)
+# 1. LEGAL & IP CONFIGURATION (Mustafa Tamer)
 # ==========================================
-LICENSE_HOLDER = "WAHBA STRATEGY"
-LEGAL_TEXT = """
-خاضع لقوانين حماية الملكية الفكرية الدولية. 
-يحظر تماماً محاولة هندسة الكود عكسياً أو اقتباس الخوارزميات البرمجية تحت طائلة المسؤولية القانونية.
-هذا البرنامج هو أداة استشارية فنية فقط؛ والقرار الاستثماري يقع بالكامل على عاتق المستخدم.
+OWNER = "MUSTAFA TAMER"
+SYSTEM_NAME = "WAHBA EGX" # الاسم المطلوب
+LEGAL_DISCLAIMER_EN = f"""
+© {datetime.now().year} {OWNER}. All Rights Reserved. 
+The {SYSTEM_NAME} terminal and its proprietary algorithms are protected under international IP laws. 
+Unauthorized reverse engineering, redistribution, or derivation is strictly prohibited.
+"""
+LEGAL_DISCLAIMER_AR = f"""
+جميع الحقوق محفوظة © {datetime.now().year} للمالك {OWNER}.
+نظام {SYSTEM_NAME} وخوارزمياته محمية بموجب قوانين الملكية الفكرية الدولية.
+يحظر تماماً إعادة الهندسة العكسية أو الاقتباس أو التوزيع غير القانوني.
 """
 
 # ==========================================
-# 2. المحرك المشفر (Encapsulated Engine)
+# 2. PROPRIETARY CORE (Hidden Logic)
 # ==========================================
-class PrivateCore:
-    """محرك التحليل الفني - نسخة محمية"""
+class QuantumEngine:
     @staticmethod
-    def _execute_logic(data_vector):
-        # تم تعمية المنطق الرياضي لضمان سرية الاستراتيجية
-        _α = data_vector['P']
-        _β = data_vector['R1']
-        _γ = data_vector['S1']
-        _δ = data_vector['Price']
-        
-        # خوارزمية وهبة الخاصة
-        target = np.round(_α + (_β - _α) * 1.618, 2)
-        sl = np.round(_γ * 0.99, 2)
-        yields = np.round(((target - _δ) / _δ) * 100, 1)
-        
-        return target, sl, yields
+    def _compute_vectors(d):
+        # Confidential logic - Vector calculation
+        _p, _r, _s, _c = d['P'], d['R1'], d['S1'], d['Price']
+        target = np.round(_p + (_r - _p) * 1.618, 2)
+        sl = np.round(_s * 0.99, 2)
+        roi = np.round(((target - _c) / _c) * 100, 1)
+        return target, sl, roi
 
 # ==========================================
-# 3. الواجهة الرسومية المتطورة (UI Customization)
+# 3. DATA ARCHITECTURE
 # ==========================================
-st.set_page_config(page_title="WAHBA | PRO TERMINAL", layout="wide")
+def get_institutional_data():
+    EGYPT_TZ = pytz.timezone('Africa/Cairo')
+    DB_FILE = f"wahba_data_{datetime.now(EGYPT_TZ).strftime('%Y%m%d')}.csv"
+    
+    if os.path.exists(DB_FILE):
+        return pd.read_csv(DB_FILE)
+    
+    try:
+        scanner_url = "https://scanner.tradingview.com/egypt/scan"
+        payload = {"filter": [{"left": "market_cap_basic", "operation": "nempty"}],
+                   "markets": ["egypt"], "columns": ["name"]}
+        res = requests.post(scanner_url, json=payload, timeout=10).json()
+        symbols = [i['s'].split(':')[1] for i in res['data'] if ":" in i['s']]
+        
+        results = []
+        for sym in symbols[:45]: 
+            try:
+                h = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", 
+                               interval=Interval.INTERVAL_1_DAY, timeout=5)
+                ind = h.get_analysis().indicators
+                results.append({
+                    "Symbol": sym, "Price": ind["close"], "Score": h.get_analysis().summary["BUY"],
+                    "P": ind["Pivot.M.Classic.Middle"], "R1": ind["Pivot.M.Classic.R1"], "S1": ind["Pivot.M.Classic.S1"]
+                })
+            except: continue
+            
+        df = pd.DataFrame(results)
+        if not df.empty: df.to_csv(DB_FILE, index=False)
+        return df
+    except: return pd.DataFrame()
 
-st.markdown(f"""
+# ==========================================
+# 4. HIGH-END UI DESIGN (Enterprise Style)
+# ==========================================
+st.set_page_config(page_title=f"{SYSTEM_NAME} PRO | {OWNER}", layout="wide")
+
+st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;500;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;600&display=swap');
     
-    :root {{
-        --gold: #D4AF37;
-        --dark-bg: #0E1117;
-        --card-bg: rgba(255, 255, 255, 0.05);
-    }}
+    .stApp { background-color: #050505; color: #ffffff; }
+    
+    h1, h2, h3 { font-family: 'Orbitron', sans-serif; letter-spacing: 2px; }
+    p, div { font-family: 'Inter', sans-serif; }
 
-    * {{ font-family: 'IBM Plex Sans Arabic', sans-serif; direction: rtl; }}
+    .main-header {
+        text-align: center;
+        padding: 50px 20px;
+        background: linear-gradient(180deg, #111 0%, #050505 100%);
+        border-bottom: 1px solid #222;
+        margin-bottom: 40px;
+    }
 
-    .stApp {{ background-color: var(--dark-bg); }}
+    .gold-text { color: #D4AF37; }
     
-    /* تصميم الكروت الاحترافي */
-    .premium-card {{
-        background: var(--card-bg);
-        border-right: 4px solid var(--gold);
-        border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 20px;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    }}
+    .quant-card {
+        background: #0a0a0a;
+        border: 1px solid #1a1a1a;
+        padding: 25px;
+        border-radius: 2px;
+        transition: 0.3s all ease-in-out;
+    }
     
-    .symbol-header {{
-        color: var(--gold);
-        font-size: 24px;
-        font-weight: 700;
-        letter-spacing: 1px;
-    }}
-    
-    .metric-box {{
-        background: rgba(0,0,0,0.2);
-        padding: 10px;
-        border-radius: 5px;
+    .quant-card:hover {
+        border-color: #D4AF37;
+        box-shadow: 0 0 15px rgba(212, 175, 55, 0.05);
+    }
+
+    .legal-box {
+        font-size: 11px;
+        color: #333;
         text-align: center;
-    }}
-    
-    .legal-footer {{
-        font-size: 10px;
-        color: #555;
-        text-align: center;
-        margin-top: 50px;
-        border-top: 1px solid #222;
-        padding: 20px;
-    }}
+        margin-top: 120px;
+        padding: 40px;
+        border-top: 1px solid #111;
+        background: #020202;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. منطق التشغيل (System Logic)
+# 5. EXECUTION TERMINAL
 # ==========================================
-
 def main():
-    # التحقق من الموافقة القانونية (تظهر مرة واحدة)
-    if 'agreed' not in st.session_state:
-        st.markdown("<h1 style='text-align:center; color:#D4AF37;'>نظام واهبة للتحليل المتقدم</h1>", unsafe_allow_html=True)
-        st.warning(LEGAL_TEXT)
-        if st.button("أوافق على الشروط وأتحمل المسؤولية القانونية الكاملة"):
-            st.session_state.agreed = True
-            st.rerun()
-        return
-
     # Header
-    cols = st.columns([1, 4, 1])
-    with cols[1]:
-        st.markdown("<h1 style='text-align:center; color:white;'>WAHBA <span style='color:#D4AF37'>QUANT</span> PRO</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align:center; color:#888;'>المنصة المؤسسية لتحليل أسهم البورصة المصرية</p>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="main-header">
+        <h1 style="margin:0; font-size: 3.5rem;">{SYSTEM_NAME} <span class="gold-text">PRO</span></h1>
+        <p style="color: #555; text-transform: uppercase; font-size: 11px; letter-spacing: 3px; margin-top:15px;">
+            Proprietary Trading Terminal • Developed by <b>{OWNER}</b>
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-    # Sidebar
-    with st.sidebar:
-        st.image("https://cdn-icons-png.flaticon.com/512/2534/2534348.png", width=100)
-        st.title("Control Panel")
-        if st.button("Refresh Terminal"):
-            st.cache_data.clear()
-            st.rerun()
-        st.markdown("---")
-        st.write("Ver: 3.0.1 (Stable)")
-
-    # جلب البيانات (استخدام الكود الخاص بك مع تحسين العرض)
-    with st.spinner("جاري تحليل السيولة والتدفقات المالية..."):
-        from __main__ import fetch_market_data # استدعاء الدالة من الكود الأصلي
-        df = fetch_market_data()
+    # Core Engine Execution
+    with st.spinner(f"AUTHENTICATING {SYSTEM_NAME} QUANTUM CORE..."):
+        df = get_institutional_data()
 
     if not df.empty:
-        # تطبيق الخوارزمية "المشفرة"
-        df[['Target', 'StopLoss', 'ROI']] = df.apply(lambda r: pd.Series(PrivateCore._execute_logic(r)), axis=1)
+        # Secure Calculation
+        df[['Target', 'SL', 'ROI']] = df.apply(lambda r: pd.Series(QuantumEngine._compute_vectors(r)), axis=1)
         
-        # عرض أفضل 10 فرص فقط (المؤسسات لا تعرض كل شيء)
-        top_picks = df[df['Score'] >= 6].sort_values(by="Score", ascending=False).head(10)
+        # Grid Display (Top ROI Signals)
+        signals = df[df['Score'] >= 5].sort_values(by='ROI', ascending=False).head(12)
         
-        grid = st.columns(2)
-        for i, (_, row) in enumerate(top_picks.iterrows()):
-            with grid[i % 2]:
+        cols = st.columns(3)
+        for i, (_, row) in enumerate(signals.iterrows()):
+            with cols[i % 3]:
                 st.markdown(f"""
-                <div class="premium-card">
+                <div class="quant-card">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span class="symbol-header">{row['Symbol']}</span>
-                        <span style="color:#ff4b4b; font-size:12px;">SL: {row['StopLoss']}</span>
+                        <span style="font-size: 1.4rem; font-weight: bold; color:#fff;">{row['Symbol']}</span>
+                        <div style="width:10px; height:10px; background:#00ffaa; border-radius:50%; box-shadow: 0 0 5px #00ffaa;"></div>
                     </div>
-                    <div style="margin: 15px 0;">
-                        <span style="color:#eee;">السعر الحالي: </span>
-                        <span style="font-size:20px; color:white; font-weight:bold;">{row['Price']} EGP</span>
+                    <div style="margin: 25px 0;">
+                        <span style="color: #444; font-size: 11px; display:block;">MARKET PRICE</span>
+                        <span style="font-size: 22px; font-weight: 600;">{row['Price']} <small style="font-size:12px; color:#444;">EGP</small></span>
                     </div>
-                    <div class="metric-box">
-                        <div style="color:#888; font-size:12px;">المستهدف المؤسسي (H1)</div>
-                        <div style="color:#00ff00; font-size:28px; font-weight:700;">{row['Target']}</div>
-                        <div style="color:#00ff00; font-size:14px;">+ {row['ROI']}% متوقع</div>
+                    <div style="background: #000; padding: 20px; border: 1px solid #1a1a1a;">
+                        <span style="color: #D4AF37; font-size: 10px; font-weight: bold; display:block; margin-bottom:5px;">INSTITUTIONAL TARGET</span>
+                        <span style="font-size: 28px; font-weight: bold; color: #00ffaa;">{row['Target']}</span>
+                        <div style="color: #00ffaa; font-size: 13px; margin-top:5px;">+ {row['ROI']}% Projected Yield</div>
+                    </div>
+                    <div style="margin-top: 20px; color: #611; font-size: 11px; font-weight:bold;">
+                        PROTECTION STOP: {row['SL']}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-    
-    # Footer القانوني الصارم
+    else:
+        st.error("System Offline. Interface cannot reach the secure server.")
+
+    # Footer
     st.markdown(f"""
-    <div class="legal-footer">
-        جميع الحقوق محفوظة © {datetime.now().year} {LICENSE_HOLDER}<br>
-        استخدام هذا النظام يخضع لاتفاقية السرية الرقمية. أي محاولة لاستخراج البيانات (Data Scraping) ستؤدي لحظر البروتوكول الخاص بك.
+    <div class="legal-box">
+        <div style="margin-bottom: 10px;">{LEGAL_DISCLAIMER_EN}</div>
+        <div style="direction: rtl;">{LEGAL_DISCLAIMER_AR}</div>
     </div>
     """, unsafe_allow_html=True)
 
