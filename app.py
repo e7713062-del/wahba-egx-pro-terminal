@@ -52,7 +52,7 @@ class AI_Risk_Engine:
         rr_ratio = round(reward / risk, 2) if risk != 0 else 0
         return stop_loss, f"1:{rr_ratio}"
 
-# --- 3. PREMIUM EXPANSION DESIGN (NAME: WAHBA EGX) ---
+# --- 3. PREMIUM EXPANSION DESIGN ---
 st.set_page_config(page_title="WAHBA EGX Premium", layout="wide")
 
 st.markdown("""
@@ -61,7 +61,6 @@ st.markdown("""
     * { font-family: 'Tajawal', sans-serif; }
     .stApp { background-color: #000000; color: #ffffff; }
     .block-container { padding-top: 2rem; padding-bottom: 5rem; max-width: 95%; }
-
     .nav-bar { 
         text-align: center; padding: 60px 20px; 
         border-bottom: 4px solid #d4af37; 
@@ -71,47 +70,34 @@ st.markdown("""
     .logo-text { font-size: 65px; font-weight: 900; color: #fff; letter-spacing: 8px; text-transform: uppercase; }
     .logo-text span { color: #d4af37; }
     .sub-logo { color: #444; font-size: 14px; letter-spacing: 12px; margin-top: 10px; }
-
     .section-header { 
         color: #d4af37; border-right: 10px solid #d4af37; 
         padding-right: 25px; margin: 60px 0 30px 0; 
         font-size: 38px; font-weight: 900; letter-spacing: 2px;
     }
-
     .stock-card { 
         background: #050505; border: 1px solid #1a1a1a; border-radius: 25px; 
         padding: 45px; margin-bottom: 40px; border-top: 6px solid #d4af37;
     }
-    
     .symbol-name { font-size: 45px; font-weight: 900; color: #d4af37; line-height: 1; }
     .price-val { font-size: 35px; font-weight: bold; color: #fff; margin: 15px 0; }
     .signal-badge { font-size: 18px; font-weight: 900; color: #d4af37; border: 1px solid #d4af37; padding: 5px 20px; border-radius: 50px; }
-
-    .risk-box { 
-        background: #000; border: 1px solid #111; padding: 30px; 
-        border-radius: 15px; margin: 30px 0;
-    }
+    .risk-box { background: #000; border: 1px solid #111; padding: 30px; border-radius: 15px; margin: 30px 0; }
     .risk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; text-align: center; }
     .risk-label { font-size: 12px; color: #555; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; display: block; }
     .risk-data { font-size: 22px; font-weight: 900; color: #fff; }
     .risk-highlight { color: #d4af37; }
     .risk-stop { color: #ff4b4b; }
-
-    .levels-grid { 
-        display: flex; justify-content: space-around; margin-top: 30px; 
-        background: #0a0a0a; padding: 25px; border-radius: 15px; border: 1px solid #111; 
-    }
+    .levels-grid { display: flex; justify-content: space-around; margin-top: 30px; background: #0a0a0a; padding: 25px; border-radius: 15px; border: 1px solid #111; }
     .level-item { text-align: center; flex: 1; }
     .label { font-size: 12px; color: #444; display: block; margin-bottom: 5px; font-weight: bold; }
     .num { font-size: 20px; font-weight: 900; color: #d4af37; font-family: monospace; }
-
     .stButton>button { 
         background: #d4af37 !important; color: #000 !important; 
         font-weight: 900 !important; border-radius: 15px !important; 
         height: 100px !important; width: 100% !important; border: none !important;
         font-size: 24px !important; letter-spacing: 3px !important;
     }
-    
     .legal-container { margin-top: 100px; padding: 60px; background: #020202; border: 1px solid #111; border-radius: 20px; direction: ltr; }
     .legal-header { color: #d4af37; font-size: 18px; font-weight: 900; letter-spacing: 3px; margin-bottom: 25px; text-transform: uppercase; text-align: left; }
     .legal-text { color: #666; font-size: 13px; line-height: 1.8; text-align: justify; margin-bottom: 30px; }
@@ -182,10 +168,7 @@ if not data.empty:
             st.markdown(f"""
             <div class="stock-card">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                    <div>
-                        <div class="symbol-name">{row['Symbol']}</div>
-                        <div class="price-val">{row['Price']} <small style="font-size:16px; color:#444;">EGP</small></div>
-                    </div>
+                    <div><div class="symbol-name">{row['Symbol']}</div><div class="price-val">{row['Price']} EGP</div></div>
                     <span class="signal-badge">{row['Signal']}</span>
                 </div>
                 <div class="risk-box">
@@ -195,22 +178,19 @@ if not data.empty:
                         <div><span class="risk-label">Risk Reward</span><span class="risk-data">{row['risk_reward']}</span></div>
                     </div>
                 </div>
-                <div class="levels-grid">
-                    <div class="level-item"><span class="label">S1 SUPPORT</span><span class="num">{row['S1']}</span></div>
-                    <div class="level-item"><span class="label">PIVOT POINT</span><span class="num">{row['P']}</span></div>
-                    <div class="level-item"><span class="label">R1 RESISTANCE</span><span class="num">{row['R1']}</span></div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)
 
-    t2 = data[(data['Score'] >= 6) & (data['Score'] < 9)]
-    if not t2.empty:
-        st.markdown('<div class="section-header">SILVER TIER SELECTIONS</div>', unsafe_allow_html=True)
-        cols = st.columns(2)
-        for idx, row in t2.reset_index().iterrows():
-            with cols[idx % 2]:
-                st.markdown(f"""
-                <div class="stock-card" style="padding: 30px; border-top-width: 3px;">
-                    <div style="display:flex; justify-content:space-between;">
-                        <span style="font-size:30px; font-weight:900; color:#d4af37;">{row['Symbol']}</span>
-                        <span style="font-size:22px; font-weight:bold;">{
+# --- 6. LEGAL FORTRESS ---
+st.markdown("""
+    <div class="legal-container">
+        <div class="legal-header">Intellectual Property</div>
+        <div class="legal-text">
+            <b>PROPRIETARY RIGHTS NOTICE:</b> This terminal, known as <b>WAHBA EGX</b>, 
+            is the exclusive property of <span class="owner-signature">Mostafa Tamer Ahmed El-Sayed</span>.
+        </div>
+        <div class="legal-header-ar">الملكية الفكرية</div>
+        <div class="legal-text-ar">
+            <b>إخطار حقوق الملكية:</b> منصة <b>WAHBA EGX</b> ملكية حصرية لـ <span class="owner-signature">مصطفى تامر أحمد السيد</span>.
+        </div>
+    </div>
+""", unsafe_allow_html=True)
