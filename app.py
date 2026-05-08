@@ -1,7 +1,7 @@
 # ==============================================================================
-# 👑 PROJECT: WAHBA EGX - THE IMPERIAL SUPREME (v31.0 - ULTRA-PREMIUM UI)
+# 👑 PROJECT: WAHBA EGX - THE IMPERIAL SUPREME (v32.0)
 # 👨‍💻 ARCHITECT: MOSTAFA TAMER | ALEXANDRIA, EGYPT
-# 🏛️ SYSTEM: NEURAL QUANTUM ANALYSIS & BILINGUAL LEGAL FORTRESS
+# 🏛️ SYSTEM: NEURAL QUANTUM ANALYSIS & HORIZONTAL LEGAL COMPLIANCE
 # ==============================================================================
 
 import streamlit as st
@@ -14,10 +14,10 @@ from datetime import datetime
 from tradingview_ta import TA_Handler, Interval
 
 # ------------------------------------------------------------------------------
-# 1. THE DATA FORTRESS (إدارة التخزين والحماية - SQLite Lite)
+# 1. THE DATA FORTRESS (إدارة التخزين الذكي)
 # ------------------------------------------------------------------------------
 class DataFortress:
-    DB_NAME = "wahba_egx_v31.db"
+    DB_NAME = "wahba_egx_v32.db"
 
     @staticmethod
     def init():
@@ -47,19 +47,17 @@ class DataFortress:
         except: return pd.DataFrame()
 
 # ------------------------------------------------------------------------------
-# 2. NEURAL CORE (المحرك العصبي المطور)
+# 2. NEURAL CORE (محرك التحليل العصبي)
 # ------------------------------------------------------------------------------
 class NeuralCore:
     @staticmethod
     def process(ind):
         p, r = ind["close"], ind["RSI"]
         volat = round(((ind["high"] - ind["low"]) / p) * 100, 2)
-        # التوقع (AI Projection) بناءً على مستويات RSI التاريخية وسلوك البورصة المصرية
         target = round(p * 1.18, 2) if r < 35 else round(p * 1.08, 2)
         trend = "Bullish Structure 📈" if p > ind["Pivot.M.Classic.Middle"] else "Bearish Structure 📉"
-        ma_state = "Trading Above MA200" if p > ind["SMA200"] else "Trading Below MA200"
+        ma_state = "Above MA200" if p > ind["SMA200"] else "Below MA200"
         
-        # منطق الـ SMC (Smart Money Concepts)
         if r < 35: msg = "💎 Institutional Accumulation"
         elif r > 75: msg = "🚨 Liquidity Distribution"
         else: msg = "🔄 Balanced Market"
@@ -67,176 +65,154 @@ class NeuralCore:
         return target, msg, trend, volat, ma_state
 
 # ------------------------------------------------------------------------------
-# 3. ULTRA-PREMIUM UI ENGINE (محرك التصميم الامبراطوري الكهرماني)
+# 3. ULTRA-PREMIUM UI ENGINE (محرك التصميم)
 # ------------------------------------------------------------------------------
-st.set_page_config(page_title="WAHBA EGX Imperial v31.0", layout="wide")
+st.set_page_config(page_title="WAHBA EGX v32.0", layout="wide")
 
-def apply_imperial_design():
+def apply_design():
     st.markdown("""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=JetBrains+Mono:wght@300&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+        .stApp { background-color: #010101; color: #f0f0f0; font-family: 'Cairo', sans-serif; }
         
-        :root { --gold: #D4AF37; --amber: #FFBF00; --bg: #030303; --card-bg: #080808; --border: #111; }
+        /* Progress Bar Custom Color */
+        .stProgress > div > div > div > div { background-image: linear-gradient(to right, #D4AF37, #FFD700); }
         
-        .stApp { background-color: var(--bg); color: #f0f0f0; font-family: 'Cairo', sans-serif; }
-        
-        /* 1. Hero Header - Full Scale */
+        /* Hero Header */
         .hero-header {
-            background: linear-gradient(135deg, #0f0f0f 0%, #000 100%);
-            padding: 80px 40px; border-radius: 40px; border: 1px solid var(--border);
-            border-bottom: 5px solid var(--gold); text-align: center;
-            margin-bottom: 60px; box-shadow: 0 40px 80px rgba(0,0,0,0.9);
+            background: linear-gradient(135deg, #0a0a0a 0%, #000 100%);
+            padding: 70px 40px; border-radius: 40px; border-bottom: 6px solid #D4AF37;
+            text-align: center; margin-bottom: 50px; box-shadow: 0 30px 60px rgba(0,0,0,1);
         }
         
-        /* 2. Tactical Cards - Neumorphism Style */
+        /* Tactical Cards */
         .tactical-card-pro {
-            background: var(--card-bg); border: 1px solid var(--border); padding: 35px;
-            border-radius: 30px; border-left: 10px solid var(--gold);
-            margin-bottom: 30px; transition: 0.4s ease;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .tactical-card-pro:hover { transform: translateY(-10px); border-color: #fff; }
-        
-        /* 3. Dashboard Metrics - Glassmorphism */
-        .glass-metric {
-            background: rgba(10, 10, 10, 0.5); backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.05); padding: 25px;
-            border-radius: 20px; text-align: center; margin-bottom: 20px;
+            background: #080808; border: 1px solid #111; padding: 30px;
+            border-radius: 25px; border-left: 10px solid #D4AF37;
+            margin-bottom: 25px; transition: 0.3s;
         }
         
-        /* 4. Text Utilities */
-        .stat-label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 2px; }
-        .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 32px; font-weight: 300; color: #fff; }
-        .target-value { color: #00ff87; }
+        /* Horizontal Legal Fortress */
+        .horizontal-legal {
+            background: #050505; border: 1px solid #111; padding: 50px;
+            margin-top: 100px; border-radius: 25px; width: 100%;
+        }
+        .legal-section { margin-bottom: 30px; line-height: 1.8; font-size: 13px; }
         </style>
         
         <div class="hero-header">
-            <h1 style="color:var(--gold); font-size: 70px; font-weight:900; margin:0;">WAHBA <span style="color:#fff;">EGX</span></h1>
-            <p style="color:#666; font-size:16px; letter-spacing: 12px; margin-top:10px;">PROPRIETARY QUANTUM TERMINAL v31.0</p>
-            <div style="margin-top:25px;"><span style="background:var(--gold); color:#000; padding:4px 15px; border-radius:5px; font-weight:900;">ALEXANDRIA QUANT NODE</span></div>
+            <h1 style="color:#D4AF37; font-size: 65px; font-weight:900; margin:0;">WAHBA <span style="color:#fff;">EGX</span></h1>
+            <p style="color:#555; font-size:15px; letter-spacing: 12px; margin-top:10px;">QUANTUM FINANCIAL TERMINAL v32.0</p>
         </div>
     """, unsafe_allow_html=True)
 
 # ------------------------------------------------------------------------------
-# 4. MAIN APPLICATION LOGIC
+# 4. MISSION CONTROL (الإدارة والتشغيل)
 # ------------------------------------------------------------------------------
 def main():
     DataFortress.init()
-    apply_imperial_design()
+    apply_design()
     
-    # --- Sidebar Command ---
     with st.sidebar:
-        st.markdown("<h2 style='color:#D4AF37;'>COMMAND</h2>", unsafe_allow_html=True)
-        nav = st.radio("Navigation", ["🛰️ Market Overview", "🏹 SMC Scanner", "🛠️ System Authority"])
+        st.markdown("<h2 style='color:#D4AF37;'>WAHBA COMMAND</h2>", unsafe_allow_html=True)
+        nav = st.radio("Navigation", ["🛰️ Market Overview", "🏹 SMC Scanner", "🛠️ System Admin"])
         st.divider()
-        st.caption("Node: ALEXANDRIA | Status: ACTIVE 🟢")
-        st.caption("Timezone: Africa/Cairo (DST Compliant)")
+        st.caption("Alexandria Node: ACTIVE 🟢")
 
     df = DataFortress.fetch()
 
-    # --- Mode: System Authority ---
-    if nav == "🛠️ System Authority":
-        st.subheader("🛠️ Authority Synchronization")
-        key = st.text_input("Enter Authority Key", type="password")
-        if key == "WAHBA_TITAN_2026":
-            if st.button("RUN GLOBAL CACHE REFRESH"):
-                with st.status("Fetching Neural Data...", expanded=True):
-                    try:
-                        res = requests.post("https://scanner.tradingview.com/egypt/scan", 
-                                            json={"filter": [{"left": "type", "operation": "in_range", "right": ["stock"]}], "markets": ["egypt"], "columns": ["name"]}, timeout=10).json()
-                        symbols = [item['s'].split(':')[1] for item in res['data']]
-                        
-                        all_data = []
-                        p_bar = st.progress(0)
-                        for i, s in enumerate(symbols):
-                            try:
-                                h = TA_Handler(symbol=s, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY)
-                                ind = h.get_analysis().indicators
-                                target, msg, trend, volat, ma = NeuralCore.process(ind)
-                                all_data.append({'S': s, 'P': ind["close"], 'T': target, 'R': round(ind["RSI"], 1), 
-                                                'M': msg, 'TR': trend, 'V': volat, 'MA': ma})
-                            except: continue
-                            p_bar.progress((i+1)/len(symbols))
-                        
-                        DataFortress.sync(all_data)
-                        st.balloons()
-                        st.success("Global Cache Updated.")
-                    except: st.error("Link Failure.")
+    if nav == "🛠️ System Admin":
+        st.subheader("⚙️ Global Neural Synchronization")
+        key = st.text_input("Sovereign Admin Key", type="password")
+        if key == "WAHBA_2026":
+            if st.button("EXECUTE DEEP SYNC"):
+                try:
+                    res = requests.post("https://scanner.tradingview.com/egypt/scan", 
+                                        json={"filter": [{"left": "type", "operation": "in_range", "right": ["stock"]}], "markets": ["egypt"], "columns": ["name"]}, timeout=10).json()
+                    symbols = [item['s'].split(':')[1] for item in res['data']]
+                    
+                    # --- شريط التحميل الاحترافي ---
+                    st.write("🛰️ **Scanning Global Node & Propagating Neurons...**")
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    all_results = []
+                    total = len(symbols)
+                    
+                    for i, s in enumerate(symbols):
+                        try:
+                            # تحديث شريط التحميل
+                            progress_bar.progress((i + 1) / total)
+                            status_text.text(f"Processing Neural Signature: {s} ({i+1}/{total})")
+                            
+                            h = TA_Handler(symbol=s, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY)
+                            ind = h.get_analysis().indicators
+                            target, msg, trend, volat, ma = NeuralCore.process(ind)
+                            all_results.append({'S': s, 'P': ind["close"], 'T': target, 'R': round(ind["RSI"], 1), 
+                                               'M': msg, 'TR': trend, 'V': volat, 'MA': ma})
+                        except: continue
+                    
+                    DataFortress.sync(all_results)
+                    status_text.success(f"Successfully Synchronized {len(all_results)} Assets.")
+                    st.balloons()
+                except: st.error("Node Connection Failure.")
 
-    # --- Mode: Market Overview ---
     elif nav == "🛰️ Market Overview":
         if not df.empty:
-            # Glass Metrics Dashboard
-            m1, m2, m3, m4 = st.columns(4)
-            with m1: st.markdown(f'<div class="glass-metric"><span class="stat-label">Analyzed</span><br><span class="stat-value">{len(df)}</span></div>', unsafe_allow_html=True)
-            with m2: st.markdown(f'<div class="glass-metric"><span class="stat-label">Bullish</span><br><span class="stat-value">{len(df[df['trend'].str.contains('Bullish')])}</span></div>', unsafe_allow_html=True)
-            with m3: st.markdown(f'<div class="glass-metric"><span class="stat-label">Buy Zone</span><br><span class="stat-value">{len(df[df['signal'].str.contains('Accumulation')])}</span></div>', unsafe_allow_html=True)
-            with m4: st.markdown(f'<div class="glass-metric"><span class="stat-label">Avg Risk</span><br><span class="stat-value">{df['volatility'].mean():.1f}%</span></div>', unsafe_allow_html=True)
+            st.caption(f"Last Imperial Sync: {df['last_update'].iloc[0]}")
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Assets Analyzed", len(df))
+            m2.metric("Bullish Trend", len(df[df['trend'].str.contains('Bullish')]))
+            m3.metric("Avg Market Risk", f"{df['volatility'].mean():.2f}%")
             
             st.divider()
-            
-            # Interactive Visuals
-            c1, c2 = st.columns([2, 1])
-            with c1:
-                st.markdown("### 📊 Quantum Price Projections")
-                fig = px.bar(df.head(20), x='ticker', y=['price', 'target'], barmode='group', 
-                             color_discrete_sequence=['#333', '#D4AF37'], template="plotly_dark")
-                st.plotly_chart(fig, use_container_width=True)
-            
-            with c2:
-                st.markdown("### 🏹 Market Sentiment")
-                fig_pie = px.pie(df, names='signal', hole=0.7, color_discrete_sequence=['#D4AF37', '#111', '#555'])
-                st.plotly_chart(fig_pie, use_container_width=True)
-
-            st.markdown("### 🏛️ Master Data Grid")
+            st.markdown("### 📊 Market Projection Map")
+            fig = px.bar(df.head(20), x='ticker', y=['price', 'target'], barmode='group', 
+                         color_discrete_sequence=['#333', '#D4AF37'], template="plotly_dark")
+            st.plotly_chart(fig, use_container_width=True)
             st.dataframe(df, use_container_width=True, hide_index=True)
         else:
-            st.warning("System offline. Admin sync required.")
+            st.warning("System offline. Please perform Admin Sync.")
 
-    # --- Mode: SMC Scanner ---
     elif nav == "🏹 SMC Scanner":
-        st.subheader("🏹 Institutional Footprint Tracker (SMC)")
-        setups = df[df['signal'].str.contains('Accumulation')]
-        
-        if not setups.empty:
-            for _, row in setups.iterrows():
+        st.subheader("🏹 Institutional Footprint Tracker")
+        hot_picks = df[df['signal'].str.contains('Accumulation')]
+        if not hot_picks.empty:
+            for _, row in hot_picks.iterrows():
                 st.markdown(f"""
                     <div class="tactical-card-pro">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <h2 style="color:var(--gold); margin:0; font-size:35px; font-weight:900;">{row['ticker']}</h2>
-                            <span style="color:#00ff87; background: rgba(0,255,135,0.1); padding:5px 20px; border-radius:10px; font-weight:bold;">SMC TARGET</span>
+                            <h2 style="color:#D4AF37; margin:0;">{row['ticker']}</h2>
+                            <span style="color:#00ff87; font-weight:bold;">SMC CONFIRMED</span>
                         </div>
-                        <p style="color:#777; margin-top:5px; margin-bottom:20px;">Logic: {row['signal']} | {row['ma_state']}</p>
-                        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:30px; text-align:center;">
-                            <div><span class="stat-label">PRICE</span><br><b class="stat-value">{row['price']}</b></div>
-                            <div><span class="stat-label">TARGET</span><br><b class="stat-value target-value">{row['target']}</b></div>
-                            <div><span class="stat-label">RSI</span><br><b class="stat-value">{row['rsi']}</b></div>
-                            <div><span class="stat-label">STRUCTURE</span><br><b class="stat-value" style="font-size:18px; color:var(--gold);">{row['trend'].split(' ')[0]}</b></div>
+                        <p style="color:#555;">{row['signal']} | {row['ma_state']}</p>
+                        <div style="display:flex; gap:60px; margin-top:20px;">
+                            <div><small>CURRENT</small><br><b style="font-size:26px;">{row['price']}</b></div>
+                            <div><small style="color:#00ff87;">AI TARGET</small><br><b style="font-size:26px; color:#00ff87;">{row['target']}</b></div>
+                            <div><small>RSI</small><br><b style="font-size:26px;">{row['rsi']}</b></div>
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info("Searching for footprints...")
+            st.info("No institutional footprints detected in the current session.")
 
-    # --- ⚖️ BILINGUAL LEGAL SECURED FOOTER ---
-    st.markdown("""
-        <div style="background: rgba(10, 10, 10, 0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); padding: 50px; margin-top: 100px; border-radius: 20px; font-size: 12px; line-height: 1.6;">
-            <div style="display: flex; gap: 50px; text-align: justify; direction: ltr;">
-                <div style="flex: 1; border-right: 1px solid rgba(255, 255, 255, 0.05); padding-right: 25px;">
-                    <h4 style="color:var(--gold); margin-bottom:15px;">LEGAL DISCLAIMER</h4>
-                    <b>1. Ownership:</b> This terminal ("WAHBA EGX") and its underlying neural algorithms are the exclusive property of <b>Mostafa Tamer Ahmed El-Sayed</b>, based in Alexandria, Egypt. Authorized use is strictly prohibited.<br>
-                    <b>2. No Advice:</b> Content is for informational purposes only. Trading involves risk. We are not liable for any financial losses.<br>
-                    <b>3. Data:</b> Market data accuracy is not guaranteed. Verify with official EGX sources.
-                </div>
-                <div style="flex: 1; direction: rtl; text-align: right; padding-right: 15px;">
-                    <h4 style="color:var(--gold); margin-bottom:15px;">إخلاء مسؤولية قانوني</h4>
-                    <b>١. الملكية:</b> هذه المنصة ("WAHBA EGX") وخوارزمياتها ملكية حصرية لـ <b>مصطفى تامر أحمد السيد</b>، المقيم بالإسكندرية، مصر. يُحظر الاستخدام غير المصرح به.<br>
-                    <b>٢. لا نصيحة مالية:</b> المحتوى للأغراض المعلوماتية فقط. التداول ينطوي على مخاطر، ونحن غير مسؤولين عن أي خسائر مالية.<br>
-                    <b>٣. البيانات:</b> دقة بيانات السوق غير مضمونة؛ يرجى التحقق من المصادر الرسمية للبورصة المصرية.
-                </div>
+    # --- ⚖️ HORIZONTAL BILINGUAL LEGAL FORTRESS ---
+    st.markdown(f"""
+        <div class="horizontal-legal">
+            <div class="legal-section" style="direction: ltr; text-align: left; border-bottom: 1px solid #111; padding-bottom: 25px;">
+                <h4 style="color:#D4AF37; margin-bottom:15px;">⚖️ LEGAL NOTICE & TERMS OF USE (ENGLISH)</h4>
+                <b>1. PROPRIETARY TECHNOLOGY:</b> This terminal ("WAHBA EGX") and its underlying neural algorithms are the sole intellectual property of <b>Mostafa Tamer Ahmed El-Sayed</b>, Alexandria, Egypt. Unauthorized reproduction or redistribution is strictly prohibited.<br>
+                <b>2. NO FINANCIAL ADVICE:</b> Information provided is for analytical purposes only and does not constitute financial advice. Trading in the Egyptian Exchange (EGX) involves high risk. Mostafa Tamer is not liable for any financial losses.<br>
+                <b>3. DATA ACCURACY:</b> We do not guarantee 100% accuracy of market data. Users must verify through official exchange sources.
             </div>
-            <hr style="border:0.5px solid rgba(255, 255, 255, 0.03); margin:35px 0;">
-            <center style="color:#333;">© 2026 WAHBA QUANTUM LABS | DEVELOPED IN ALEXANDRIA, EGYPT | ALL RIGHTS RESERVED</center>
+            <div class="legal-section" style="direction: rtl; text-align: right; padding-top: 10px;">
+                <h4 style="color:#D4AF37; margin-bottom:15px;">⚖️ إخلاء مسؤولية وشروط الاستخدام (العربية)</h4>
+                <b>١. الملكية الفكرية:</b> هذه المنصة ("WAHBA EGX") وخوارزمياتها العصبية هي ملكية حصرية لـ <b>مصطفى تامر أحمد السيد</b>، الإسكندرية، مصر. يُمنع منعاً باتاً إعادة الإنتاج أو التوزيع غير المصرح به.<br>
+                <b>٢. لا نصيحة مالية:</b> المعلومات المقدمة هي لأغراض تحليلية فقط ولا تعتبر نصيحة استثمارية. التداول في البورصة المصرية ينطوي على مخاطر عالية، ومصطفى تامر غير مسؤول عن أي خسائر مالية.<br>
+                <b>٣. دقة البيانات:</b> لا نضمن دقة بيانات السوق بنسبة ١٠٠٪؛ لذا يجب على المستخدمين التحقق من المصادر الرسمية للبورصة.
+            </div>
+            <hr style="border:0.5px solid #111; margin:30px 0;">
+            <center style="color:#333; font-size:11px;">© 2026 WAHBA QUANTUM LABS | DEVELOPED IN ALEXANDRIA, EGYPT | ALL RIGHTS RESERVED TO MOSTAFA TAMER</center>
         </div>
     """, unsafe_allow_html=True)
 
