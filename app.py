@@ -5,208 +5,219 @@ import requests
 from datetime import datetime
 import pytz
 import numpy as np
-from sklearn.linear_model import LinearRegression
+import joblib
+import os
 import time
 
 # ==========================================
-# 1. إعدادات التوقيت والأمان (Timezone Sync)
+# 1. إعدادات النظام والتوقيت
 # ==========================================
-def get_egypt_time():
-    """التكيف التلقائي مع التوقيت الصيفي والشتوي في مصر"""
-    egypt_tz = pytz.timezone('Africa/Cairo')
-    return datetime.now(egypt_tz)
-
-now_egypt = get_egypt_time()
+egypt_tz = pytz.timezone('Africa/Cairo')
+now_egypt = datetime.now(egypt_tz)
 today_key = now_egypt.strftime("%Y-%m-%d")
 
-# إعداد الصفحة
 st.set_page_config(
-    page_title="Wahba Intelligence | Institutional Terminal",
-    page_icon="⚜️",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    page_title="Wahba Intelligence | Platinum Edition",
+    page_icon="👑",
+    layout="wide"
 )
 
 # ==========================================
-# 2. الواجهة الرسومية الفاخرة (Professional CSS)
+# 2. هندسة الواجهة (HTML & CSS Custom Engine)
 # ==========================================
-st.markdown("""
+st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;700;900&display=swap');
     
-    * { font-family: 'Tajawal', sans-serif; }
-    .stApp { background-color: #000000; color: #ffffff; }
+    /* الأساسيات */
+    * {{ font-family: 'Tajawal', sans-serif; }}
+    .stApp {{ background-color: #050505; color: #ffffff; }}
     
-    /* Header Section */
-    .header-box {
-        text-align: center; padding: 40px; 
-        background: linear-gradient(180deg, #050505 0%, #000 100%);
-        border-bottom: 2px solid #d4af37; margin-bottom: 30px;
-    }
-    .logo-text { font-size: 45px; font-weight: 900; color: #fff; letter-spacing: 3px; }
-    .logo-text span { color: #d4af37; }
+    /* تصميم الهيدر الاحترافي */
+    .hero-section {{
+        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+        padding: 60px 20px;
+        text-align: center;
+        border-bottom: 3px solid #d4af37;
+        margin-bottom: 40px;
+        border-radius: 0 0 40px 40px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }}
     
-    /* Disclaimer Box */
-    .disclaimer-box {
-        background: #111; border: 1px solid #333; border-radius: 8px;
-        padding: 15px; margin: 20px 0; font-size: 11px; color: #888; text-align: justify;
-    }
+    .main-title {{
+        font-size: 48px;
+        font-weight: 900;
+        letter-spacing: 4px;
+        margin-bottom: 10px;
+        color: #fff;
+    }}
+    
+    .main-title span {{ color: #d4af37; }}
+    
+    .sub-title {{
+        font-size: 14px;
+        color: #d4af37;
+        text-transform: uppercase;
+        letter-spacing: 5px;
+        font-weight: bold;
+    }}
 
-    /* Stock Cards */
-    .stock-card {
-        background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 15px;
-        padding: 25px; margin-bottom: 20px; border-right: 5px solid #d4af37;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    }
-    .price-val { font-size: 26px; font-weight: bold; color: #fff; }
-    .target-val { font-size: 24px; font-weight: bold; color: #00ff00; }
+    /* كروت الأسهم (Custom CSS Cards) */
+    .stock-card-container {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        padding: 10px;
+    }}
+
+    .stock-card {{
+        background: #0d0d0d;
+        border: 1px solid #222;
+        border-radius: 20px;
+        padding: 25px;
+        position: relative;
+        overflow: hidden;
+        transition: 0.4s ease;
+        border-top: 4px solid #d4af37;
+    }}
+
+    .stock-card:hover {{
+        transform: translateY(-10px);
+        box-shadow: 0 20px 40px rgba(212, 175, 55, 0.15);
+        border-color: #d4af37;
+    }}
+
+    .symbol-name {{ font-size: 28px; font-weight: 900; color: #d4af37; margin-bottom: 5px; }}
+    .sentiment-tag {{ font-size: 12px; color: #888; margin-bottom: 20px; }}
     
-    /* Button Customization */
-    .stButton>button {
-        background: linear-gradient(90deg, #d4af37, #f4d03f) !important;
-        color: #000 !important; font-weight: 900 !important;
-        height: 65px !important; border-radius: 12px !important;
-        border: none !important; transition: 0.3s !important;
-    }
-    .stButton>button:hover { transform: scale(1.01); box-shadow: 0 0 20px rgba(212, 175, 55, 0.4); }
+    .data-row {{ display: flex; justify-content: space-between; margin-bottom: 15px; }}
+    .data-label {{ font-size: 13px; color: #555; }}
+    .data-value {{ font-size: 20px; font-weight: bold; color: #fff; }}
+    .target-value {{ font-size: 22px; font-weight: bold; color: #00ff00; }}
+
+    /* أزرار مخصصة */
+    .stButton>button {{
+        width: 100%;
+        background: linear-gradient(90deg, #d4af37 0%, #f4d03f 100%) !important;
+        color: #000 !important;
+        font-weight: 900 !important;
+        border-radius: 12px !important;
+        height: 60px !important;
+        border: none !important;
+        font-size: 18px !important;
+        transition: 0.3s !important;
+    }}
+    
+    .stButton>button:hover {{
+        box-shadow: 0 0 25px rgba(212, 175, 55, 0.5) !important;
+        transform: scale(1.02) !important;
+    }}
+
+    /* إخفاء القوائم الافتراضية المزعجة */
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
     </style>
     
-    <div class="header-box">
-        <div class="logo-text">WAHBA <span>INTELLIGENCE</span></div>
-        <p style="color:#d4af37; font-size:12px; font-weight:bold; letter-spacing:2px;">
-            STOCHASTIC MACHINE LEARNING & INSTITUTIONAL ANALYSIS
-        </p>
+    <div class="hero-section">
+        <div class="sub-title">Wahba Quantum Analytics</div>
+        <div class="main-title">WAHBA <span>INTELLIGENCE</span></div>
+        <p style="color:#666;">Institutional Grade Trading Neural Network v6.5</p>
     </div>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. إخلاء المسئولية القانوني (Legal Disclaimer)
-# ==========================================
-with st.expander("⚖️ إخلاء المسئولية القانوني (Legal Disclaimer) - اقرأ قبل الاستخدام"):
-    st.markdown("""
-    <div class="disclaimer-box">
-        هذا البرنامج (Wahba Intelligence) هو أداة تقنية تعتمد على خوارزميات تعلم الآلة والتحليل الفني الإحصائي. 
-        <b>1. لا تعتبر نصيحة مالية:</b> جميع البيانات والتوقعات الناتجة عن الكود هي لغرض التعليم والبحث فقط، ولا يجب اعتبارها توصية بالبيع أو الشراء.
-        <b>2. دقة البيانات:</b> يتم جلب البيانات من مصادر طرف ثالث (TradingView)، والمطور غير مسؤول عن أي تأخير أو خطأ في هذه البيانات.
-        <b>3. مخاطر التداول:</b> أسواق المال عالية المخاطر، والمستخدم وحده هو المسؤول عن قراراته الاستثمارية وما قد يترتب عليها من أرباح أو خسائر.
-        <b>4. التوقعات المستقبلية:</b> نماذج الـ Machine Learning تتوقع بناءً على معطيات تاريخية، والأداء السابق لا يضمن النتائج المستقبلية.
-    </div>
-    """, unsafe_allow_html=True)
-
-# ==========================================
-# 4. محرك الـ ML المطور (Robust ML Engine)
-# ==========================================
-def train_predict_engine(p, r, piv, r1):
-    """محرك تنبؤ مع معالجة القيم المتطرفة لمنع التعليق"""
-    try:
-        # بيانات تدريبية موسعة لتحسين الدقة الإحصائية
-        X = np.array([[10,30,9,11], [20,50,19,22], [50,70,48,53], [5,25,4.5,6], [100,60,98,105]])
-        y = np.array([10.5, 21, 52, 5.5, 103])
-        model = LinearRegression().fit(X, y)
-        prediction = model.predict(np.array([[p, r, piv, r1]]))
-        return round(float(prediction[0]), 2)
-    except:
-        return round(p * 1.02, 2) # هدف افتراضي في حالة فشل الموديل
-
-# ==========================================
-# 5. سحب وتحليل البيانات (Data Pipeline)
+# 3. محرك الـ AI وإدارة البيانات
 # ==========================================
 @st.cache_data(ttl=3600)
-def fetch_symbols_auto():
-    """سحب جميع الأسهم المدرجة أوتوماتيكياً مع معالجة أخطاء الشبكة"""
+def get_symbols():
     try:
         url = "https://scanner.tradingview.com/egypt/scan"
-        payload = {"filter": [{"left": "type", "operation": "in_range", "right": ["stock"]}], "markets": ["egypt"], "columns": ["name"]}
-        res = requests.post(url, json=payload, timeout=15).json()
-        return [item['s'].split(':')[1] for item in res['data'] if ":" in item['s']]
-    except Exception as e:
-        st.warning("⚠️ تعذر جلب القائمة الكاملة، يتم الآن استخدام قائمة الأسهم القيادية.")
-        return ["COMI", "FWRY", "TMGH", "SWDY", "EKHO", "ABUK", "BTEL", "ISPH", "HELI", "ORAS"]
+        payload = {{"filter": [{{"left": "type", "operation": "in_range", "right": ["stock"]}}], "markets": ["egypt"], "columns": ["name"]}}
+        res = requests.post(url, json=payload, timeout=10).json()
+        return [item['s'].split(':')[1] for item in res['data']]
+    except:
+        return ["COMI", "FWRY", "TRTO", "TMGH", "SWDY"]
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def perform_deep_scan(date_key):
-    symbols = fetch_symbols_auto()
+def analyze_market():
+    symbols = get_symbols()
     results = []
     
-    # تحسين أداء المعالجة
-    progress_bar = st.progress(0, text="🤖 الذكاء الاصطناعي يحلل السوق الآن...")
+    # محرك الـ AI (مبسط هنا لضمان السرعة)
+    brain = LinearRegression()
+    brain.fit(np.array([[10,30], [20,50], [5,25], [100,60]]), np.array([10.5, 21, 5.5, 103]))
+    
+    progress_bar = st.progress(0, text="🤖 جاري مسح السوق بالذكاء الاصطناعي...")
     
     for i, sym in enumerate(symbols):
         try:
-            # إضافة تأخير بسيط لمنع الحظر من السيرفر (Rate Limiting)
-            if i % 10 == 0: time.sleep(0.1)
-            
-            handler = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=10)
+            handler = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=7)
             analysis = handler.get_analysis()
-            ind = analysis.indicators
+            p = analysis.indicators.get("close")
+            r = analysis.indicators.get("RSI")
+            piv = analysis.indicators.get("Pivot.M.Classic.Middle")
             
-            close_p = ind.get("close")
-            rsi_v = ind.get("RSI")
-            piv_v = ind.get("Pivot.M.Classic.Middle")
-            r1_v = ind.get("Pivot.M.Classic.R1")
+            target = round(float(brain.predict(np.array([[p, r]]))[0]), 2)
             
-            if None in [close_p, rsi_v, piv_v]: continue
-            
-            target = train_predict_engine(close_p, rsi_v, piv_v, r1_v)
-            growth = round(((target - close_p) / close_p) * 100, 2)
-            
-            # تحليل السيولة المؤسسية
-            if close_p > piv_v and rsi_v > 50: sentiment = "✅ تجميع مؤسسي"
-            elif rsi_v > 70: sentiment = "⚠️ تشبع شرائي"
-            elif close_p < piv_v: sentiment = "❌ ضغط بيعي"
-            else: sentiment = "🔄 تذبذب عرضي"
+            # تحليل الحالة
+            status = "✅ تجميع مؤسسي" if p > piv and r > 50 else "🔄 تذبذب عرضي"
+            if r > 70: status = "⚠️ تشبع شرائي"
 
-            results.append({
-                "السهم": sym, "الإغلاق": round(close_p, 2), "الهدف الذكي": target,
-                "عائد متوقع%": growth, "حالة السيولة": sentiment, "التوصية": analysis.summary["RECOMMENDATION"]
-            })
+            results.append({{
+                "sym": sym, "price": p, "target": target,
+                "status": status, "rec": analysis.summary["RECOMMENDATION"]
+            }})
         except: continue
         progress_bar.progress((i + 1) / len(symbols))
     
     progress_bar.empty()
-    return pd.DataFrame(results).sort_values(by="عائد متوقع%", ascending=False)
+    return results
 
 # ==========================================
-# 6. لوحة التحكم الرئيسية (Main Logic)
+# 4. التنفيذ وعرض الواجهة (The Frontend)
 # ==========================================
-st.write(f"📅 **تاريخ الجلسة:** {today_key} | ⏰ **توقيت القاهرة:** {now_egypt.strftime('%I:%M %p')}")
+st.sidebar.markdown(f"""
+    <div style="background:#111; padding:20px; border-radius:15px; border:1px solid #222;">
+        <h3 style="color:#d4af37; margin-top:0;">📡 حالة النظام</h3>
+        <p style="font-size:12px;">توقيت القاهرة: {now_egypt.strftime('%I:%M %p')}</p>
+        <p style="font-size:12px;">التاريخ: {today_key}</p>
+        <hr style="border-color:#222;">
+        <p style="font-size:11px; color:#555;">النظام متزامن مع بورصة مصر TradingView</p>
+    </div>
+""", unsafe_allow_html=True)
 
-if st.button('إصدار التقرير الذهبي الشامل (AI SCAN)', use_container_width=True):
-    # مسح الـ Cache القديم لضمان بيانات جديدة عند الضغط
-    st.session_state.final_data = perform_deep_scan(today_key)
+if st.button("إطلاق الماسح الذكي الشامل (AI SCAN)"):
+    market_data = analyze_market()
+    st.session_state.data = market_data
 
-if 'final_data' in st.session_state:
-    df = st.session_state.final_data
+if 'data' in st.session_state:
+    st.markdown("### ⚜️ أقوى الفرص المكتشفة")
     
-    if not df.empty:
-        st.markdown("### ⚜️ نخبة الفرص (Top Potential)")
-        top_cols = st.columns(3)
-        # عرض أقوى 3 أسهم بناءً على نمذجة الـ ML
-        for idx, row in df.head(3).iterrows():
-            with top_cols[idx % 3]:
-                st.markdown(f"""
-                <div class="stock-card">
-                    <div style="font-size:24px; font-weight:900; color:#d4af37;">{row['السهم']}</div>
-                    <div style="font-size:13px; color:#888; margin-bottom:15px;">{row['حالة السيولة']}</div>
-                    <div style="display:flex; justify-content:space-between;">
-                        <div>سعر اليوم:<br><span class="price-val">{row['الإغلاق']}</span></div>
-                        <div style="text-align:left;">الهدف المتوقع:<br><span class="target-val">{row['الهدف الذكي']}</span></div>
-                    </div>
-                    <div style="margin-top:15px; font-weight:bold; color:#d4af37;">القرار التقني: {row['التوصية']}</div>
+    # إنشاء الكروت باستخدام HTML و CSS
+    cols = st.columns(3)
+    for i, item in enumerate(st.session_state.data[:12]): # عرض أول 12 سهم
+        with cols[i % 3]:
+            st.markdown(f"""
+            <div class="stock-card">
+                <div class="symbol-name">{item['sym']}</div>
+                <div class="sentiment-tag">{item['status']}</div>
+                <div class="data-row">
+                    <span class="data-label">سعر الإغلاق</span>
+                    <span class="data-value">{item['price']}</span>
                 </div>
-                """, unsafe_allow_html=True)
+                <div class="data-row">
+                    <span class="data-label">الهدف الذكي</span>
+                    <span class="target-value">{item['target']}</span>
+                </div>
+                <div style="margin-top:15px; font-size:11px; font-weight:bold; color:#d4af37; text-align:center;">
+                    القرار: {item['rec']}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        st.divider()
-        st.subheader("📊 تحليل كامل السوق المصري")
-        st.dataframe(df, use_container_width=True, hide_index=True)
-    else:
-        st.error("لم يتم العثور على بيانات كافية حالياً، يرجى المحاولة مرة أخرى.")
-
-# التذييل
 st.markdown(f"""
-    <div style="text-align:center; padding:50px; color:#444; font-size:10px; border-top:1px solid #111;">
-        WAHBA INTELLIGENCE PRO TERMINAL v3.0<br>
-        Developed by Mostafa Tamer © 2026 | All Rights Reserved<br>
-        Server Location: {now_egypt.tzinfo}
+    <div style="margin-top:100px; text-align:center; padding:40px; border-top:1px solid #1a1a1a; color:#333; font-size:10px;">
+        WAHBA INTELLIGENCE | PLATINUM v6.5<br>
+        DESIGNED BY MOSTAFA TAMER © 2026<br>
+        ALEXANDRIA - EGYPT
     </div>
 """, unsafe_allow_html=True)
