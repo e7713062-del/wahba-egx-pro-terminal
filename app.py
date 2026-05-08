@@ -1,7 +1,7 @@
 # ==============================================================================
-# 👑 PROJECT: WAHBA EGX - THE IMPERIAL BEAST (v28.0 - ENTERPRISE)
+# 👑 PROJECT: WAHBA EGX - THE IMPERIAL SUPREME (v29.0)
 # 👨‍💻 ARCHITECT: MOSTAFA TAMER | ALEXANDRIA, EGYPT
-# 🏛️ SYSTEM: QUANTUM NEURAL ANALYSIS & INSTITUTIONAL TRACKING
+# 🏛️ SYSTEM: NEURAL QUANTUM ANALYSIS, SMC TRACKING & LEGAL COMPLIANCE
 # ==============================================================================
 
 import streamlit as st
@@ -15,180 +15,228 @@ from datetime import datetime
 from tradingview_ta import TA_Handler, Interval
 
 # ------------------------------------------------------------------------------
-# 1. THE IMPERIAL VAULT (نظام التخزين العملاق الموفر للمساحة)
+# 1. THE DATA FORTRESS (إدارة التخزين والحماية)
 # ------------------------------------------------------------------------------
-class ImperialVault:
-    DB_NAME = "wahba_imperial_v28.db"
+class DataFortress:
+    DB_NAME = "wahba_supreme_v29.db"
 
     @staticmethod
     def init():
-        with sqlite3.connect(ImperialVault.DB_NAME) as conn:
+        with sqlite3.connect(DataFortress.DB_NAME) as conn:
             conn.execute('''CREATE TABLE IF NOT EXISTS market_data 
                          (ticker TEXT PRIMARY KEY, price REAL, target REAL, 
-                          rsi REAL, signal TEXT, trend TEXT, volatility REAL, last_update TEXT)''')
+                          rsi REAL, signal TEXT, trend TEXT, volatility REAL, 
+                          ma_state TEXT, volume_profile TEXT, last_update TEXT)''')
             conn.commit()
 
     @staticmethod
-    def sync_data(results):
-        with sqlite3.connect(ImperialVault.DB_NAME) as conn:
+    def sync(results):
+        with sqlite3.connect(DataFortress.DB_NAME) as conn:
             cairo_tz = pytz.timezone('Africa/Cairo')
             ts = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M")
             for r in results:
                 conn.execute('''INSERT OR REPLACE INTO market_data 
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
-                             (r['S'], r['P'], r['T'], r['R'], r['M'], r['TR'], r['V'], ts))
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                             (r['S'], r['P'], r['T'], r['R'], r['M'], r['TR'], r['V'], r['MA'], r['VP'], ts))
             conn.commit()
 
     @staticmethod
-    def get_market_view():
+    def fetch():
         try:
-            with sqlite3.connect(ImperialVault.DB_NAME) as conn:
-                return pd.read_sql_query("SELECT * FROM market_data", conn)
+            with sqlite3.connect(DataFortress.DB_NAME) as conn:
+                return pd.read_sql_query("SELECT * FROM market_data ORDER BY ticker ASC", conn)
         except: return pd.DataFrame()
 
 # ------------------------------------------------------------------------------
-# 2. NEURAL CORE (المحرك العصبي المطور)
+# 2. NEURAL INTELLIGENCE (المحرك العصبي المطور)
 # ------------------------------------------------------------------------------
-class NeuralBrain:
+class NeuralCore:
     @staticmethod
-    def analyze(ind):
+    def process(ind):
         p, r = ind["close"], ind["RSI"]
-        # حساب التذبذب (Volatility)
         volat = round(((ind["high"] - ind["low"]) / p) * 100, 2)
-        # التوقع بناءً على SMC و RSI
-        target = round(p * 1.15, 2) if r < 40 else round(p * 1.07, 2)
-        # تحديد الهيكل (Structure)
+        target = round(p * 1.18, 2) if r < 35 else round(p * 1.08, 2)
         trend = "Bullish 📈" if p > ind["Pivot.M.Classic.Middle"] else "Bearish 📉"
+        ma_state = "Above MA200" if p > ind["SMA200"] else "Below MA200"
         
+        # SMC & Volume Analysis
         if r < 35: msg = "💎 Institutional Accumulation"
-        elif r > 70: msg = "🚨 Liquidity Distribution"
-        else: msg = "🔄 Balanced Range"
+        elif r > 75: msg = "🚨 Liquidity Distribution"
+        else: msg = "🔄 Balanced Market"
         
-        return target, msg, trend, volat
+        v_profile = "High Volume Node" if ind["volume"] > ind["average_volume_10d"] else "Low Liquidity"
+        
+        return target, msg, trend, volat, ma_state, v_profile
 
 # ------------------------------------------------------------------------------
-# 3. IMPERIAL UI (الواجهة الامبراطورية الكبرى)
+# 3. PREMIUM UI ENGINE (محرك التصميم الاحترافي)
 # ------------------------------------------------------------------------------
-st.set_page_config(page_title="WAHBA EGX PRO", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="WAHBA SUPREME v29.0", layout="wide")
 
-def apply_styles():
+def apply_imperial_design():
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
-        .stApp { background-color: #050505; color: #e0e0e0; font-family: 'Cairo', sans-serif; }
-        [data-testid="stMetricValue"] { color: #D4AF37 !important; font-weight: 900; }
-        .main-header {
-            background: linear-gradient(135deg, #111 0%, #000 100%);
-            padding: 50px; border-radius: 30px; border-bottom: 4px solid #D4AF37;
-            text-align: center; margin-bottom: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+        .stApp { background-color: #030303; color: #f0f0f0; font-family: 'Cairo', sans-serif; }
+        
+        /* Header Section */
+        .hero-header {
+            background: linear-gradient(135deg, #0f0f0f 0%, #000 100%);
+            padding: 60px; border-radius: 40px; border: 1px solid #1a1a1a;
+            border-bottom: 5px solid #D4AF37; text-align: center;
+            margin-bottom: 50px; box-shadow: 0 30px 60px rgba(0,0,0,0.8);
         }
-        .card-pro {
-            background: #0d0d0d; border: 1px solid #1a1a1a; padding: 25px;
-            border-radius: 20px; border-left: 6px solid #D4AF37; margin-bottom: 20px;
+        
+        /* Tactical Cards */
+        .tactical-card {
+            background: #0a0a0a; border: 1px solid #151515; padding: 30px;
+            border-radius: 25px; border-left: 8px solid #D4AF37;
+            margin-bottom: 25px; transition: 0.4s ease;
         }
+        .tactical-card:hover { transform: translateY(-5px); border-color: #fff; }
+        
+        /* Legal Disclaimer */
+        .legal-footer {
+            background: #050505; padding: 50px; border-top: 1px solid #111;
+            margin-top: 100px; text-align: justify; color: #444; font-size: 11px;
+        }
+        
+        .status-badge { background: #D4AF37; color: #000; padding: 3px 12px; border-radius: 5px; font-weight: 900; }
         </style>
-        <div class="main-header">
-            <h1 style="color:#D4AF37; font-size: 50px; margin:0;">WAHBA EGX <span style="color:#fff;">SUPREME</span></h1>
-            <p style="color:#666; letter-spacing: 5px;">QUANTUM FINANCIAL TERMINAL v28.0</p>
+        <div class="hero-header">
+            <h1 style="color:#D4AF37; font-size: 60px; font-weight:900; margin:0;">WAHBA <span style="color:#fff;">SUPREME</span></h1>
+            <p style="color:#666; font-size:14px; letter-spacing: 8px; margin-top:10px;">PROPRIETARY QUANTUM TRADING TERMINAL v29.0</p>
+            <div style="margin-top:20px;"><span class="status-badge">ALEXANDRIA QUANT NODE</span></div>
         </div>
     """, unsafe_allow_html=True)
 
 # ------------------------------------------------------------------------------
-# 4. MAIN SYSTEM ENGINE
+# 4. MAIN APPLICATION LOGIC
 # ------------------------------------------------------------------------------
 def main():
-    ImperialVault.init()
-    apply_styles()
+    DataFortress.init()
+    apply_imperial_design()
     
-    # Sidebar
+    # --- Sidebar Control ---
     with st.sidebar:
-        st.image("https://cdn-icons-png.flaticon.com/512/2534/2534183.png", width=100)
-        st.title("Control Center")
-        mode = st.selectbox("Navigation", ["Global Dashboard", "SMC Opportunities", "System Admin"])
+        st.markdown("<h2 style='color:#D4AF37;'>COMMAND CENTER</h2>", unsafe_allow_html=True)
+        nav = st.radio("Navigation", ["🛰️ Market Overview", "🏹 SMC Scanner", "🛠️ System Authority"])
         st.divider()
-        st.info("Alexandria Node: Stable 🟢")
+        st.caption("Server: Active 🟢")
+        st.caption("Timezone: Africa/Cairo (DST Compliant)")
 
-    df = ImperialVault.get_market_view()
+    df = DataFortress.fetch()
 
-    if mode == "System Admin":
-        st.subheader("🔐 Database & Neural Sync")
-        key = st.text_input("Access Key", type="password")
+    # --- Mode: System Authority ---
+    if nav == "🛠️ System Authority":
+        st.subheader("Sovereign Data Synchronization")
+        key = st.text_input("Enter Authority Key", type="password")
         if key == "WAHBA_2026":
-            if st.button("🚀 FULL SYSTEM REFRESH"):
-                with st.status("Scanning EGX & Training Neurons...", expanded=True):
+            if st.button("RUN DEEP MARKET SCAN"):
+                with st.status("Fetching Neural Data...", expanded=True):
                     try:
                         res = requests.post("https://scanner.tradingview.com/egypt/scan", 
                                             json={"filter": [{"left": "type", "operation": "in_range", "right": ["stock"]}], "markets": ["egypt"], "columns": ["name"]}, timeout=10).json()
                         symbols = [item['s'].split(':')[1] for item in res['data']]
                         
-                        scans = []
-                        prog = st.progress(0)
+                        all_data = []
+                        p_bar = st.progress(0)
                         for i, s in enumerate(symbols):
                             try:
                                 h = TA_Handler(symbol=s, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY)
                                 ind = h.get_analysis().indicators
-                                target, msg, trend, volat = NeuralBrain.analyze(ind)
-                                scans.append({'S': s, 'P': ind["close"], 'T': target, 'R': round(ind["RSI"], 1), 'M': msg, 'TR': trend, 'V': volat})
+                                target, msg, trend, volat, ma, vp = NeuralCore.process(ind)
+                                all_data.append({'S': s, 'P': ind["close"], 'T': target, 'R': round(ind["RSI"], 1), 
+                                                'M': msg, 'TR': trend, 'V': volat, 'MA': ma, 'VP': vp})
                             except: continue
-                            prog.progress((i+1)/len(symbols))
+                            p_bar.progress((i+1)/len(symbols))
                         
-                        ImperialVault.sync_data(scans)
+                        DataFortress.sync(all_data)
                         st.balloons()
-                        st.success("System Fully Updated.")
-                    except: st.error("Global Connection Error.")
+                        st.success("Global Node Synchronized.")
+                    except: st.error("Connection Refused by Remote Server.")
 
-    elif mode == "Global Dashboard":
+    # --- Mode: Market Overview ---
+    elif nav == "🛰️ Market Overview":
         if not df.empty:
-            # Metrics
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Total Assets", len(df))
-            m2.metric("Bullish Trend", len(df[df['trend'] == 'Bullish 📈']))
-            m3.metric("Accumulation Phase", len(df[df['signal'].str.contains('Accumulation')]))
-            m4.metric("Avg Volatility", f"{df['volatility'].mean():.2f}%")
+            # Metrics Dashboard
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Assets Analyzed", len(df))
+            col2.metric("Bullish Market", f"{len(df[df['trend'].str.contains('Bullish')])}")
+            col3.metric("Avg Volatility", f"{df['volatility'].mean():.2f}%")
+            col4.metric("SMC Buy Zones", len(df[df['signal'].str.contains('Accumulation')]))
             
             st.divider()
             
-            # Charts
+            # Interactive Visuals
             c1, c2 = st.columns([2, 1])
             with c1:
-                st.markdown("### 📈 AI Price Projection vs Current")
-                fig = px.bar(df.head(20), x='ticker', y=['price', 'target'], barmode='group', 
-                             color_discrete_sequence=['#333', '#D4AF37'], template="plotly_dark")
+                st.markdown("### 📊 Quantum Price Projections")
+                fig = px.scatter(df, x="rsi", y="volatility", size="price", color="trend",
+                                 hover_name="ticker", template="plotly_dark", color_discrete_sequence=["#D4AF37", "#444"])
                 st.plotly_chart(fig, use_container_width=True)
             
             with c2:
-                st.markdown("### 🏹 Signal Distribution")
-                fig_pie = px.pie(df, names='signal', color_discrete_sequence=['#D4AF37', '#111', '#555'], hole=0.6)
+                st.markdown("### 🏹 Market Sentiment")
+                fig_pie = px.pie(df, names='signal', hole=0.7, color_discrete_sequence=['#D4AF37', '#1a1a1a', '#555'])
                 st.plotly_chart(fig_pie, use_container_width=True)
 
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.markdown("### 🏛️ Active Master Data")
+            st.dataframe(df.drop(columns=['last_update']), use_container_width=True, hide_index=True)
         else:
-            st.warning("No data found. Please run System Admin Sync.")
+            st.info("System is offline. Please login to Authority Panel for initial sync.")
 
-    elif mode == "SMC Opportunities":
-        st.subheader("💎 Institutional Grade Setups (High Confidence)")
-        hot_picks = df[df['signal'].str.contains('Accumulation')].sort_values('volatility')
+    # --- Mode: SMC Scanner ---
+    elif nav == "🏹 SMC Scanner":
+        st.subheader("Institutional Footprint Analysis")
+        setups = df[df['signal'].str.contains('Accumulation')]
         
-        if not hot_picks.empty:
-            for _, row in hot_picks.iterrows():
+        if not setups.empty:
+            for _, row in setups.iterrows():
                 st.markdown(f"""
-                    <div class="card-pro">
-                        <div style="display:flex; justify-content:space-between;">
+                    <div class="tactical-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
                             <h2 style="color:#D4AF37; margin:0;">{row['ticker']}</h2>
-                            <span style="background:#00ff87; color:#000; padding:5px 15px; border-radius:10px; font-weight:bold;">BUY ZONE</span>
+                            <span style="color:#00ff87; font-weight:bold;">SMC CONFIRMED</span>
                         </div>
-                        <p style="color:#888;">{row['signal']} | Trend: {row['trend']}</p>
-                        <div style="display:flex; gap:40px;">
-                            <div><small>CURRENT</small><br><span style="font-size:20px;">{row['price']}</span></div>
-                            <div><small>AI TARGET</small><br><span style="font-size:20px; color:#00ff87;">{row['target']}</span></div>
-                            <div><small>VOLATILITY</small><br><span style="font-size:20px;">{row['volatility']}%</span></div>
+                        <p style="color:#777;">Logic: {row['signal']} | RSI: {row['rsi']} | {row['ma_state']}</p>
+                        <div style="display:flex; gap:50px; margin-top:20px;">
+                            <div><small style="color:#555;">CURRENT</small><br><b style="font-size:24px;">{row['price']}</b></div>
+                            <div><small style="color:#555;">AI TARGET</small><br><b style="font-size:24px; color:#00ff87;">{row['target']}</b></div>
+                            <div><small style="color:#555;">STRUCTURE</small><br><b style="font-size:24px;">{row['trend']}</b></div>
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info("Scanning for institutional footprints... No high-confidence setups at this moment.")
+            st.warning("No institutional footprints detected in the current session.")
 
-    st.markdown("<br><center style='color:#333; font-size:12px;'>WAHBA QUANT SYSTEMS | ALEXANDRIA NODE | © 2026</center>", unsafe_allow_html=True)
+    # --- ⚖️ LEGAL DISCLAIMER & FOOTER ---
+    st.markdown(f"""
+        <div class="legal-footer">
+            <h3 style="color:#D4AF37; margin-bottom:20px;">LEGAL NOTICE & DISCLAIMER</h3>
+            <p>
+                <b>1. PROPRIETARY TECHNOLOGY:</b> This terminal ("WAHBA SUPREME") and its underlying neural algorithms, 
+                SMC logic, and architecture are the sole intellectual property of <b>Mostafa Tamer Ahmed El-Sayed</b>, based in Alexandria, Egypt. 
+                Unauthorized reproduction, reverse engineering, or redistribution is strictly prohibited under international copyright laws.
+            </p>
+            <p>
+                <b>2. NO FINANCIAL ADVICE:</b> The information provided by this system is for educational and analytical purposes only. 
+                It does not constitute financial, investment, or trading advice. Trading in the Egyptian Exchange (EGX) and global markets 
+                carries significant risk. Past performance, as calculated by our neural engine, is not indicative of future results.
+            </p>
+            <p>
+                <b>3. DATA ACCURACY:</b> While our system utilizes advanced caching and real-time APIs, <b>WAHBA QUANT SYSTEMS</b> 
+                does not guarantee the 100% accuracy, completeness, or timeliness of market data. Users are advised to verify all 
+                information through official exchange sources.
+            </p>
+            <p>
+                <b>4. LIMITATION OF LIABILITY:</b> Mostafa Tamer and his affiliates shall not be held liable for any financial losses, 
+                damages, or profit variations resulting from the use of this software.
+            </p>
+            <hr style="border:0.5px solid #111; margin:30px 0;">
+            <center>© 2026 WAHBA QUANTUM LABS | DEVELOPED IN ALEXANDRIA, EGYPT | ALL RIGHTS RESERVED</center>
+        </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
