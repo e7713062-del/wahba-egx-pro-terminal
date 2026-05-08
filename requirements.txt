@@ -1,7 +1,6 @@
 streamlit
 pandas
-numpy
-requests
-pytz
-scikit-learn
 tradingview-ta
+plotly
+pytz
+requests
