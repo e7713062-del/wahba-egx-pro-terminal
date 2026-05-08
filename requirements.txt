@@ -1,5 +1,5 @@
-streamlit
-tradingview-ta
+streamlit>=1.30.0
+tradingview-ta>=3.3.0
 pandas
 numpy
 requests
