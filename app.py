@@ -11,141 +11,160 @@ from sklearn.linear_model import LinearRegression
 # --- 1. إعدادات الوقت وقاعدة البيانات ---
 egypt_tz = pytz.timezone('Africa/Cairo')
 now_egypt = datetime.now(egypt_tz)
-today_date = now_egypt.strftime("%Y-%m-%d")
+today_key = now_egypt.strftime("%Y-%m-%d")
 
-class WahbaStorage:
+class WahbaVault:
     @staticmethod
     def init_db():
-        with sqlite3.connect("wahba_strategic_vault.db") as conn:
-            # ننشئ الجدول لو مش موجود
-            conn.execute('''CREATE TABLE IF NOT EXISTS daily_analysis 
-                         (symbol TEXT PRIMARY KEY, price REAL, target REAL, 
-                          stop_loss REAL, probability TEXT, reason TEXT, date TEXT)''')
+        with sqlite3.connect("wahba_final_vault.db") as conn:
+            conn.execute('''CREATE TABLE IF NOT EXISTS daily_archive 
+                         (Symbol TEXT PRIMARY KEY, Price REAL, Score INTEGER, 
+                          S1 REAL, P REAL, R1 REAL, Signal TEXT, 
+                          ai_target REAL, reason TEXT, date TEXT)''')
             conn.commit()
 
     @staticmethod
-    def save_new_analysis(df):
-        with sqlite3.connect("wahba_strategic_vault.db") as conn:
-            # نمسح أي داتا قديمة عشان نحط تحليل اليوم الجديد فريش
-            conn.execute("DELETE FROM daily_analysis")
-            df['date'] = today_date
-            df.to_sql("daily_analysis", conn, if_exists="append", index=False)
+    def save_data(df):
+        with sqlite3.connect("wahba_final_vault.db") as conn:
+            conn.execute("DELETE FROM daily_archive")
+            df['date'] = today_key
+            df.to_sql("daily_archive", conn, if_exists="append", index=False)
 
     @staticmethod
-    def get_last_analysis():
-        with sqlite3.connect("wahba_strategic_vault.db") as conn:
-            return pd.read_sql_query("SELECT * FROM daily_analysis", conn)
+    def load_data():
+        with sqlite3.connect("wahba_final_vault.db") as conn:
+            return pd.read_sql_query("SELECT * FROM daily_archive", conn)
 
 # --- 2. محرك الذكاء الاصطناعي (AI Brain) ---
-class AI_Engine:
+class AI_Processor:
     @staticmethod
-    def predict_target(price, score):
+    def predict(price, score):
         X = np.array([1, 2, 3, 4, 5]).reshape(-1, 1)
         y = np.array([price * (1 + (score/100)*i) for i in range(5)])
         model = LinearRegression().fit(X, y)
         return round(model.predict(np.array([[6]]))[0], 2)
 
-st.set_page_config(page_title="Wahba Strategic Vault", layout="wide")
+st.set_page_config(page_title="Wahba Intelligence AI", layout="wide")
 
-# --- 3. التصميم الإمبراطوري المحفوظ ---
+# --- 3. التصميم الأساسي (بدون تعديل) ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
     * { font-family: 'Tajawal', sans-serif; }
     .stApp { background-color: #000000; color: #ffffff; }
-    .nav-bar { text-align: center; padding: 40px; border-bottom: 3px solid #d4af37; margin-bottom: 30px; }
-    .logo-text { font-size: 40px; font-weight: 900; color: #fff; }
+    .nav-bar { text-align: center; padding: 30px; border-bottom: 2px solid #d4af37; margin-bottom: 20px; }
+    .logo-text { font-size: 30px; font-weight: 900; color: #fff; letter-spacing: 2px; }
     .logo-text span { color: #d4af37; }
-    .stock-card { background: #080808; border: 1px solid #1a1a1a; border-radius: 20px; padding: 30px; margin-bottom: 25px; border-top: 4px solid #d4af37; }
-    .legal-fortress { background: #020202; border: 1px solid #111; padding: 60px; margin-top: 120px; border-radius: 25px; width: 100%; }
+    .section-header { color: #d4af37; border-right: 5px solid #d4af37; padding-right: 15px; margin: 40px 0 20px 0; font-size: 24px; font-weight: bold; }
+    .stock-card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 15px; padding: 25px; margin-bottom: 20px; border-top: 3px solid #d4af37; }
+    .symbol-name { font-size: 28px; font-weight: 900; color: #d4af37; }
+    .price-val { font-size: 24px; font-weight: bold; color: #fff; }
+    .levels-grid { display: flex; justify-content: space-between; margin-top: 20px; background: #000; padding: 10px; border-radius: 8px; border: 1px solid #111; }
+    .level-item { text-align: center; }
+    .label { font-size: 10px; color: #555; display: block; }
+    .num { font-size: 14px; font-weight: bold; color: #d4af37; font-family: monospace; }
+    .stButton>button { background: #d4af37 !important; color: #000 !important; font-weight: 900 !important; border-radius: 10px !important; height: 60px !important; width: 100% !important; border: none !important; }
+    .footer-box { margin-top: 80px; padding: 40px; text-align: center; border-top: 1px solid #1a1a1a; color: #444; font-size: 12px; }
     </style>
     <div class="nav-bar">
-        <div class="logo-text">WAHBA <span>STRATEGIC VAULT</span></div>
-        <p style="color:#444; font-size:12px; letter-spacing: 5px;">INSTITUTIONAL PERMANENT ANALYSIS v39.0</p>
+        <div class="logo-text">WAHBA <span>INTELLIGENCE AI</span></div>
+        <p style="color:#444; font-size:10px;">INSTITUTIONAL AI STORAGE TERMINAL</p>
     </div>
 """, unsafe_allow_html=True)
 
-# --- 4. منطق التشغيل والحفظ ---
-WahbaStorage.init_db()
+# --- 4. محرك البيانات الاستراتيجي ---
+WahbaVault.init_db()
 
 @st.cache_data(ttl=86400)
-def get_symbols():
+def fetch_symbols():
     try:
         url = "https://scanner.tradingview.com/egypt/scan"
         res = requests.post(url, json={"filter": [{"left": "market_cap_basic", "operation": "nempty"}], "markets": ["egypt"], "columns": ["name"]}, timeout=15).json()
         return [item['s'].split(':')[1] for item in res['data'] if not item['s'].split(':')[1].isdigit()]
     except: return ["COMI", "FWRY", "TMGH", "SWDY"]
 
-def run_deep_scan():
-    symbols = get_symbols()
+def run_strategic_scan():
+    symbols = fetch_symbols()
     results = []
     p_bar = st.progress(0)
     for i, sym in enumerate(symbols):
         try:
-            h = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=10)
-            ind = h.get_analysis().indicators
-            score = 5 if ind["close"] > ind["SMA50"] else 2
-            target = AI_Engine.predict_target(ind["close"], score)
+            handler = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=10)
+            analysis = handler.get_analysis()
+            ind = analysis.indicators
+            rec = analysis.summary["RECOMMENDATION"]
+            score = 0
+            if "STRONG_BUY" in rec: score += 5
+            elif "BUY" in rec: score += 3
+            if ind.get("RSI") and 50 <= ind.get("RSI") <= 68: score += 3
+            if ind.get("close") > ind.get("Pivot.M.Classic.Middle"): score += 2
+            
+            ai_target = AI_Processor.predict(ind.get("close"), score)
             results.append({
-                "symbol": sym, "price": round(ind["close"], 2), "target": target,
-                "stop_loss": round(ind["close"] * 0.95, 2), "probability": f"{60 + score*5}%",
-                "reason": "تحليل يومي استراتيجي محفوظ"
+                "Symbol": sym, "Price": round(ind.get("close"), 2), "Score": score,
+                "S1": round(ind.get("Pivot.M.Classic.S1"), 2), "P": round(ind.get("Pivot.M.Classic.Middle"), 2),
+                "R1": round(ind.get("Pivot.M.Classic.R1"), 2), "Signal": rec,
+                "ai_target": ai_target, "reason": "تحليل استراتيجي مؤرشف"
             })
         except: continue
         p_bar.progress((i + 1) / len(symbols))
     p_bar.empty()
     df = pd.DataFrame(results)
-    WahbaStorage.save_new_analysis(df)
+    WahbaVault.save_data(df)
     return df
 
-# --- 5. واجهة المستخدم النهائية ---
+# --- 5. العرض والتحكم ---
+if st.button('🔄 إصدار وحفظ التقرير الذهبي بالذكاء الاصطناعي'):
+    run_strategic_scan()
+    st.success("تم تحديث البيانات وحفظها في الخزنة.")
 
-# محاولة تحميل البيانات المحفوظة أولاً
-saved_data = WahbaStorage.get_last_analysis()
+data = WahbaVault.load_data()
 
-col1, col2 = st.columns([2, 1])
-with col2:
-    if st.button('🔄 تحديث التحليل وحفظه لليوم'):
-        saved_data = run_deep_scan()
-        st.success("تم تحديث " + today_date + " بنجاح!")
-
-with col1:
-    if not saved_data.empty:
-        last_date = saved_data['date'].iloc[0]
-        st.info(f"📅 تعرض المنصة حالياً تحليل يوم: {last_date}")
-    else:
-        st.warning("⚠️ لا توجد بيانات محفوظة. برجاء الضغط على زر التحديث.")
-
-if not saved_data.empty:
-    for _, row in saved_data.iterrows():
-        st.markdown(f"""
-        <div class="stock-card">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:30px; font-weight:900; color:#d4af37;">{row['symbol']}</span>
-                <span style="background:#d4af37; color:#000; padding:5px 10px; border-radius:5px; font-weight:bold;">{row['probability']}</span>
+if not data.empty:
+    st.write(f"توقيت التقرير المؤرشف: {data['date'].iloc[0]}")
+    
+    # تصنيف 1: نخبة النخبة الذهبية (التي طلبتها)
+    t1 = data[data['Score'] >= 9]
+    if not t1.empty:
+        st.markdown('<div class="section-header">⚜️ نخبـة نخبـة الصعـود (AI Optimized)</div>', unsafe_allow_html=True)
+        for _, row in t1.iterrows():
+            st.markdown(f"""
+            <div class="stock-card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span class="symbol-name">{row['Symbol']}</span>
+                    <span style="color:#d4af37; font-weight:bold;">{row['Signal']}</span>
+                </div>
+                <div style="color:#00ff87; font-size:12px; margin-bottom:5px;">🧠 AI PREDICTED TARGET: {row['ai_target']}</div>
+                <div class="price-val">{row['Price']} <small style="font-size:12px; color:#444;">EGP</small></div>
+                <div class="levels-grid">
+                    <div class="level-item"><span class="label">S1 (دعم)</span><span class="num">{row['S1']}</span></div>
+                    <div class="level-item"><span class="label">PIVOT (ارتكاز)</span><span class="num">{row['P']}</span></div>
+                    <div class="level-item"><span class="label">R1 (مقاومة)</span><span class="num">{row['R1']}</span></div>
+                </div>
             </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; margin-top:20px; text-align:center;">
-                <div><small style="color:#555;">السعر الحالي</small><br><b>{row['price']}</b></div>
-                <div><small style="color:#00ff87;">الهدف المحفوظ</small><br><b style="color:#00ff87;">{row['target']}</b></div>
-                <div><small style="color:#ff4b4b;">وقف الخسارة</small><br><b style="color:#ff4b4b;">{row['stop_loss']}</b></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
-# --- 6. الفوتر القانوني الإمبراطوري ---
+    # تصنيف 2: النخبة الصاعدة
+    t2 = data[(data['Score'] >= 6) & (data['Score'] < 9)]
+    if not t2.empty:
+        st.markdown('<div class="section-header">💎 نخبـة الصعـود</div>', unsafe_allow_html=True)
+        cols = st.columns(2)
+        for idx, row in t2.reset_index().iterrows():
+            with cols[idx % 2]:
+                st.markdown(f"""
+                <div class="stock-card" style="border-top: 1px solid #d4af37;">
+                    <div style="font-size:20px; font-weight:900;">{row['Symbol']}</div>
+                    <div style="color:#d4af37; font-size:18px;">{row['Price']} EGP</div>
+                    <div style="font-size:11px; color:#00ff87;">Target: {row['ai_target']}</div>
+                    <div style="font-size:11px; color:#444; margin-top:10px;">R1: {row['R1']} | S1: {row['S1']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+# --- 6. القسم القانوني الكامل (الذي طلبته) ---
 st.markdown("""
-    <div class="legal-fortress">
-        <div style="display: flex; flex-wrap: wrap; gap: 50px;">
-            <div style="flex: 1; min-width: 350px;">
-                <h4 style="color:#d4af37; margin-top:0;">⚖️ STRATEGIC DOMAIN & OWNERSHIP (EN)</h4>
-                <p style="color:#444; font-size:12px;">This data is permanently archived for 24-hour cycles. Proprietary intellectual property of <b>Mostafa Tamer Ahmed El-Sayed</b>.</p>
-            </div>
-            <div style="flex: 1; min-width: 350px; direction: rtl; text-align: right;">
-                <h4 style="color:#d4af37; margin-top:0;">⚖️ الملكية الاستراتيجية (AR)</h4>
-                <p style="color:#444; font-size:12px;">هذه البيانات مؤرشفة لدورات تبلغ 24 ساعة. ملكية فكرية حصرية لـ <b>مصطفى تامر أحمد السيد</b>.</p>
-            </div>
-        </div>
-        <hr style="border:0.1px solid #111; margin:40px 0;">
-        <center style="color:#222; font-size:10px;">© 2026 WAHBA STRATEGIC VAULT • ALL RIGHTS RESERVED</center>
+    <div class="footer-box">
+        <p style="font-weight:bold; color:#d4af37;">WAHBA INTELLIGENCE • INSTITUTIONAL DIVISION</p>
+        <p>هذا التقرير ملكية فكرية حصرية لـ <b>مصطفى تامر أحمد السيد</b>. التقرير مؤرشف لضمان الثبات الكامل لبيانات الذكاء الاصطناعي.</p>
+        <p style="font-size:10px; color:#222;">© 2026 WAHBA AI LABS • ALEXANDRIA • ALL RIGHTS RESERVED</p>
     </div>
 """, unsafe_allow_html=True)
