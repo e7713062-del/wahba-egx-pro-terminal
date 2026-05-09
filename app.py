@@ -5,126 +5,212 @@ import pandas as pd
 import sqlite3
 from datetime import datetime
 import time
+import os
 
-# ==========================================
-# 1. SPOT ONLY CONFIG (تداول سبوت حقيقي فقط)
-# ==========================================
-# ملاحظة: التداول في Spot Binance هو شراء عملة حقيقية بمال حقيقي
-API_KEY = 'YOUR_API_KEY'
-API_SECRET = 'YOUR_SECRET_KEY'
+# =================================================================
+# 1. إعدادات قاعدة البيانات (الذاكرة الدائمة)
+# =================================================================
+def initialize_database():
+    """تهيئة ملفات الذاكرة والرصيد لضمان عدم ضياع البيانات"""
+    connection = sqlite3.connect("wahba_professional_memory.db")
+    cursor = connection.cursor()
+    
+    # جدول الرصيد الوهمي
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_wallet (
+            id INTEGER PRIMARY KEY, 
+            balance REAL
+        )
+    """)
+    
+    # جدول سجل الصفقات والخبرة المكتسبة
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS trade_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            entry_price REAL,
+            exit_price REAL,
+            profit_loss REAL,
+            result TEXT, -- 'WIN' or 'LOSS'
+            logic_used TEXT
+        )
+    """)
+    
+    # التأكد من وجود الرصيد الأولي (5000 دولار)
+    cursor.execute("SELECT balance FROM user_wallet WHERE id = 1")
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO user_wallet (id, balance) VALUES (1, 5000.0)")
+    
+    connection.commit()
+    connection.close()
 
-# الاتصال ببينانس - تأكد أن الـ API مفعل فيه "Enable Spot Trading" فقط
-try:
-    client = Client(API_KEY, API_SECRET)
-except:
-    client = None
+def get_current_balance():
+    conn = sqlite3.connect("wahba_professional_memory.db")
+    res = conn.execute("SELECT balance FROM user_wallet WHERE id = 1").fetchone()
+    conn.close()
+    return res[0]
 
-# ==========================================
-# 2. PURE SMC LOGIC (Sourcing Liquidity)
-# ==========================================
-class SMCSpotEngine:
-    @staticmethod
-    def get_analysis():
+def update_db_after_trade(profit, entry, exit, status):
+    conn = sqlite3.connect("wahba_professional_memory.db")
+    conn.execute("UPDATE user_wallet SET balance = balance + ? WHERE id = 1", (profit,))
+    conn.execute("""
+        INSERT INTO trade_history (timestamp, entry_price, exit_price, profit_loss, result, logic_used)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), entry, exit, profit, status, "SMC_LIQUIDITY_SWEEP"))
+    conn.commit()
+    conn.close()
+
+# =================================================================
+# 2. محرك تحليل البيتكوين (SMC Spot Only)
+# =================================================================
+class BitcoinSpotAnalyzer:
+    """المسؤول عن جلب وتحليل حركة البيتكوين فقط"""
+    def __init__(self, symbol="BTCUSDT"):
+        self.symbol = symbol
+
+    def fetch_market_data(self):
         try:
-            # التحليل مخصص للبيتكوين سبوت فقط على فريم 15 دقيقة
             handler = TA_Handler(
-                symbol="BTCUSDT",
+                symbol=self.symbol,
                 exchange="BINANCE",
                 screener="crypto",
                 interval=Interval.INTERVAL_15_MINUTES,
-                timeout=10
+                timeout=20
             )
-            return handler.get_analysis().indicators
-        except:
+            analysis = handler.get_analysis()
+            return analysis.indicators
+        except Exception as e:
+            st.error(f"خطأ في جلب البيانات: {e}")
             return None
 
-    @staticmethod
-    def check_sweep(ind):
-        c, l, pl = ind.get("close"), ind.get("low"), ind.get("low.1")
-        # سحب سيولة قاع (دخول مع الأموال الذكية)
-        return l < pl and c > pl, l
+    def detect_smc_setup(self, indicators):
+        """تحليل سحب السيولة (Liquidity Sweep)"""
+        if not indicators:
+            return False, 0
+        
+        current_close = indicators.get("close")
+        current_low = indicators.get("low")
+        previous_low = indicators.get("low.1")
+        
+        # حماية من القيم الفارغة (None) لتجنب TypeError
+        if None in [current_close, current_low, previous_low]:
+            return False, 0
+            
+        # منطق سحب السيولة: السعر يضرب القاع السابق ثم يرتد للأعلى
+        is_sweep = (current_low < previous_low) and (current_close > previous_low)
+        return is_sweep, current_low
 
-# ==========================================
-# 3. MEMORY & BALANCE (الذاكرة والرصيد الوهمي)
-# ==========================================
-def init_db():
-    with sqlite3.connect("wahba_halal_spot.db") as conn:
-        conn.execute("CREATE TABLE IF NOT EXISTS wallet (id INTEGER PRIMARY KEY, balance REAL)")
-        conn.execute("CREATE TABLE IF NOT EXISTS memory (time TEXT, price REAL, res INTEGER)")
-        if not conn.execute("SELECT balance FROM wallet WHERE id=1").fetchone():
-            conn.execute("INSERT INTO wallet (id, balance) VALUES (1, 5000.0)")
+# =================================================================
+# 3. نظام التداول الآلي والربط (Binance Ready)
+# =================================================================
+class TradingBot:
+    def __init__(self):
+        self.is_in_position = False
+        self.active_trade = {}
 
-def get_balance():
-    with sqlite3.connect("wahba_halal_spot.db") as conn:
-        return conn.execute("SELECT balance FROM wallet WHERE id=1").fetchone()[0]
+    def process_market_cycle(self, indicators, api_mode):
+        if not indicators:
+            return "⏳ جاري محاولة الاتصال بالسوق..."
+        
+        price = indicators.get("close")
+        analyzer = BitcoinSpotAnalyzer()
+        is_setup, low_point = analyzer.detect_smc_setup(indicators)
 
-def save_trade(price, res, profit):
-    with sqlite3.connect("wahba_halal_spot.db") as conn:
-        conn.execute("UPDATE wallet SET balance = balance + ? WHERE id=1", (profit,))
-        conn.execute("INSERT INTO memory VALUES (?,?,?)", (datetime.now(), price, res))
+        # --- حالة: البحث عن دخول (Buy) ---
+        if not self.is_in_position:
+            if is_setup:
+                self.is_in_position = True
+                stop_loss = low_point * 0.998 # ستوب تحت القاع بمسافة آمنة
+                take_profit = price + (price - stop_loss) * 2.5 # هدف 2.5 ضعف المخاطرة
+                
+                self.active_trade = {
+                    'entry': price,
+                    'sl': stop_loss,
+                    'tp': take_profit,
+                    'start_time': datetime.now()
+                }
+                
+                # هنا يتم إضافة كود تنفيذ API بينانس الحقيقي مستقبلاً
+                if api_mode == "Real Account":
+                    pass # client.order_market_buy(...)
+                
+                return f"🚀 تم دخول صفقة شراء سبوت عند {price:,.2f}"
+            return "🔍 يراقب البيتكوين بانتظار سحب السيولة..."
 
-# ==========================================
-# 4. DASHBOARD & AUTO-TRADER
-# ==========================================
-st.set_page_config(page_title="WAHBA BTC SPOT", layout="wide")
-init_db()
+        # --- حالة: إدارة صفقة مفتوحة (Exit) ---
+        else:
+            if price >= self.active_trade['tp']:
+                profit = 200 # ربح تقديري للرصيد الوهمي
+                update_db_after_trade(profit, self.active_trade['entry'], price, "WIN")
+                self.is_in_position = False
+                return "✅ مبروك! تم ضرب الهدف بربح."
 
-if 'bot_active' not in st.session_state: st.session_state.bot_active = False
-if 'in_pos' not in st.session_state: st.session_state.in_pos = False
-if 'trade' not in st.session_state: st.session_state.trade = {}
+            elif price <= self.active_trade['sl']:
+                loss = -100 # خسارة تقديرية
+                update_db_after_trade(loss, self.active_trade['entry'], price, "LOSS")
+                self.is_in_position = False
+                return "🛑 للأسف تم ضرب وقف الخسارة."
 
+            return f"🟢 صفقة مفتوحة | الربح الحالي: {price - self.active_trade['entry']:.2f}"
+
+# =================================================================
+# 4. واجهة المستخدم (The Dashboard)
+# =================================================================
 def main():
-    st.markdown("<h2 style='text-align:center; color:#f3ba2f;'>₿ WAHBA BITCOIN SPOT AI</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; color:gray;'>Pure SMC - No Leverage - Spot Only</p>", unsafe_allow_html=True)
-
-    # الرصيد في القائمة الجانبية
-    bal = get_balance()
-    st.sidebar.metric("الرصيد الحالي (وهمي)", f"${bal:,.2f}", delta=f"{bal-5000:.2f}")
+    st.set_page_config(page_title="WAHBA BTC PRO", layout="wide")
+    initialize_database()
     
-    # خيار الربط بالـ API (اختياري)
-    mode = st.sidebar.toggle("تفعيل الربط الحقيقي (بينانس سبوت)")
+    # الجلسة (Session State) للحفاظ على حالة البوت
+    if 'my_bot' not in st.session_state:
+        st.session_state.my_bot = TradingBot()
 
-    placeholder = st.empty()
+    st.markdown("<h1 style='text-align:center; color:#FFD700;'>🦅 WAHBA MASTER: BITCOIN SPOT AI</h1>", unsafe_allow_html=True)
+    st.divider()
+
+    # القائمة الجانبية (Sidebar)
+    st.sidebar.header("🕹️ التحكم والبيانات")
+    current_bal = get_current_balance()
+    st.sidebar.metric("المحفظة (Demo Balance)", f"${current_bal:,.2f}", delta=f"{current_bal - 5000:,.2f}")
+    
+    api_status = st.sidebar.selectbox("وضع التشغيل:", ["Simulation Mode", "Real Account (API)"])
+    
+    with st.sidebar.expander("🔑 إعدادات الـ API"):
+        api_key = st.text_input("Binance API Key", type="password")
+        api_secret = st.text_input("Binance Secret Key", type="password")
+
+    # المساحة الرئيسية للعرض
+    main_display = st.empty()
 
     while True:
-        ind = SMCSpotEngine.get_analysis()
-        if ind:
-            price = ind.get("close")
-            is_sweep, low_val = SMCSpotEngine.check_sweep(ind)
-            
-            # --- منطق الدخول (شراء سبوت) ---
-            if not st.session_state.in_pos and is_sweep:
-                st.session_state.in_pos = True
-                sl = low_val * 0.998 # ستوب لوز تحت منطقة السحب
-                tp = price + (price - sl) * 2 # هدف رابح
-                st.session_state.trade = {'entry': price, 'sl': sl, 'tp': tp}
-                st.toast("🚀 دخلت صفقة شراء سبوت!")
+        analyzer = BitcoinSpotAnalyzer()
+        market_indicators = analyzer.fetch_market_data()
+        
+        if market_indicators:
+            current_price = market_indicators.get("close")
+            bot_message = st.session_state.my_bot.process_market_cycle(market_indicators, api_status)
 
-            # --- منطق الخروج (بيع سبート) ---
-            if st.session_state.in_pos:
-                if price >= st.session_state.trade['tp']:
-                    save_trade(price, 1, 150)
-                    st.session_state.in_pos = False
-                    st.balloons()
-                elif price <= st.session_state.trade['sl']:
-                    save_trade(price, 0, -100)
-                    st.session_state.in_pos = False
-
-            # --- الواجهة ---
-            with placeholder.container():
+            with main_display.container():
+                # كارت السعر
                 st.markdown(f"""
-                <div style="background:#0a0a0a; padding:40px; border-radius:20px; border:1px solid #f3ba2f; text-align:center;">
-                    <h1 style="color:white; font-size:4.5rem; margin:0;">${price:,.2f}</h1>
-                    <p style="color:#f3ba2f;">{'🟢 في صفقة شراء الآن' if st.session_state.in_pos else '⚪ جاري مراقبة سيولة البيتكوين'}</p>
+                <div style="background:#111; padding:30px; border-radius:20px; border:2px solid #333; text-align:center;">
+                    <h2 style="color:#888; margin:0;">BTC / USDT SPOT</h2>
+                    <h1 style="font-size:5rem; color:#FFD700; margin:10px 0;">${current_price:,.2f}</h1>
+                    <div style="background:#222; padding:15px; border-radius:10px; color:#00FFCC; font-size:1.2rem;">
+                        {bot_message}
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                if st.session_state.in_pos:
-                    c1, c2 = st.columns(2)
-                    c1.success(f"الهدف: {st.session_state.trade['tp']:.2f}")
-                    c2.error(f"وقف الخسارة: {st.session_state.trade['sl']:.2f}")
+                # تفاصيل الصفقة الحالية إذا وجدت
+                if st.session_state.my_bot.is_in_position:
+                    st.write("---")
+                    c1, c2, c3 = st.columns(3)
+                    t = st.session_state.my_bot.active_trade
+                    c1.info(f"سعر الدخول: {t['entry']:,.2f}")
+                    c2.success(f"الهدف (TP): {t['tp']:,.2f}")
+                    c3.error(f"الستوب (SL): {t['sl']:,.2f}")
 
-        time.sleep(20)
+        time.sleep(15) # تحديث كل 15 ثانية
         st.rerun()
 
 if __name__ == "__main__":
