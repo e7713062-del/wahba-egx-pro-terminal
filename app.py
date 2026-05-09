@@ -8,21 +8,21 @@ import threading
 import random
 
 # =================================================================
-# 1. ط§ظ„ط°ط§ظƒط±ط© ط§ظ„ط³ظٹط§ط¯ظٹط© (Sovereign Database & Memory)
+# 1. الذاكرة السيادية (Sovereign Database & Memory)
 # =================================================================
 class WahbaSovereignMemory:
-    """ط§ظ„ظ…ط³ط¤ظˆظ„ ط¹ظ† ط­ظپط¸ ط§ظ„ط±طµظٹط¯طŒ ط£ظ†ظ…ط§ط· ط§ظ„طھط¯ط§ظˆظ„طŒ ظˆط³ط¬ظ„ ط§ظ„ط®ط¨ط±ط© ط§ظ„طھط§ط±ظٹط®ظٹط©"""
+    """المسؤول عن حفظ الرصيد، أنماط التداول، وسجل الخبرة التاريخية"""
     def __init__(self, db_name="wahba_sovereign_v11.db"):
         self.db_name = db_name
         self._init_db()
 
     def _init_db(self):
         with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
-            # ط¬ط¯ظˆظ„ ط§ظ„ظ…ط­ظپط¸ط© ط§ظ„ط±ط¦ظٹط³ظٹ
+            # جدول المحفظة الرئيسي
             conn.execute("CREATE TABLE IF NOT EXISTS wallet (id INTEGER PRIMARY KEY, balance REAL)")
-            # ط¬ط¯ظˆظ„ ط§ظ„ط£ظ†ظ…ط§ط· (ط³ظƒط§ظ„ط¨ظٹظ†ط¬طŒ ط¯ط§ظٹطŒ ط³ظˆظٹظ†ط¬)
+            # جدول الأنماط (سكالبينج، داي، سوينج)
             conn.execute("CREATE TABLE IF NOT EXISTS styles (name TEXT PRIMARY KEY, success_count INTEGER, total_pnl REAL)")
-            # ط³ط¬ظ„ ط§ظ„ط¹ظ…ظ„ظٹط§طھ ط§ظ„طھظپطµظٹظ„ظٹ
+            # سجل العمليات التفصيلي
             conn.execute("CREATE TABLE IF NOT EXISTS trade_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, style TEXT, pnl REAL, time TEXT, status TEXT)")
             
             if not conn.execute("SELECT balance FROM wallet").fetchone():
@@ -32,23 +32,23 @@ class WahbaSovereignMemory:
 
     def commit_trade(self, style, pnl, status="SUCCESS"):
         with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
-            # طھط­ط¯ظٹط« ط§ظ„ط±طµظٹط¯
+            # تحديث الرصيد
             curr_bal = conn.execute("SELECT balance FROM wallet").fetchone()[0]
             new_bal = curr_bal + pnl
             conn.execute("UPDATE wallet SET balance = ?", (new_bal,))
-            # طھط­ط¯ظٹط« ط¥ط­طµط§ط¦ظٹط§طھ ط§ظ„ظ†ظ…ط·
+            # تحديث إحصائيات النمط
             conn.execute("UPDATE styles SET success_count = success_count + 1, total_pnl = total_pnl + ? WHERE name = ?", (pnl, style))
-            # طھط³ط¬ظٹظ„ ط§ظ„ط¹ظ…ظ„ظٹط©
+            # تسجيل العملية
             conn.execute("INSERT INTO trade_logs (style, pnl, time, status) VALUES (?, ?, ?, ?)", 
                         (style, pnl, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), status))
 
 # =================================================================
-# 2. ط§ظ„ظ…ط­ط±ظƒ ط§ظ„ط«ظ„ط§ط«ظٹ ظ„ظ„ظ†ظ…ظˆ (The Triple-Threat Engine)
+# 2. المحرك الثلاثي للنمو (The Triple-Threat Engine)
 # =================================================================
 class WahbaTripleEngine:
     def __init__(self, memory):
         self.memory = memory
-        self.symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT"] # طھظ†ظˆظٹط¹ ط§ظ„ط£طµظˆظ„ ظ„ط²ظٹط§ط¯ط© ط§ظ„ط±ط¨ط­
+        self.symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT"] # تنويع الأصول لزيادة الربح
 
     def analyze(self, symbol, interval):
         try:
@@ -57,97 +57,97 @@ class WahbaTripleEngine:
         except: return "NEUTRAL"
 
     def run_scalping(self):
-        """ط§ظ„ط®ط·ظپ ط§ظ„ط³ط±ظٹط¹ (1m - 5m): ط£ط±ط¨ط§ط­ طµط؛ظٹط±ط© ظ…طھظƒط±ط±ط©"""
+        """الخطف السريع (1m - 5m): أرباح صغيرة متكررة"""
         rec = self.analyze("BTCUSDT", Interval.INTERVAL_1_MINUTE)
         if rec == "STRONG_BUY":
-            pnl = random.uniform(5, 12) # ط±ط¨ط­ ط³ظƒط§ظ„ط¨ظٹظ†ط¬ ط³ط±ظٹط¹
+            pnl = random.uniform(5, 12) # ربح سكالبينج سريع
             self.memory.commit_trade("SCALPING", pnl)
 
     def run_day_trading(self):
-        """ط§ظ„طھط¯ط§ظˆظ„ ط§ظ„ظٹظˆظ…ظٹ (15m - 1h): طµظپظ‚ط§طھ ظ…ط¹ ط§ظ„ط§طھط¬ط§ظ‡"""
+        """التداول اليومي (15m - 1h): صفقات مع الاتجاه"""
         rec = self.analyze("BTCUSDT", Interval.INTERVAL_15_MINUTES)
         if "BUY" in rec:
             pnl = random.uniform(30, 75)
             self.memory.commit_trade("DAY_TRADING", pnl)
 
     def run_swing(self):
-        """ط§ظ„ط§ط³طھط«ظ…ط§ط± ط§ظ„ظ‚طµظٹط± (4h - 1d): ظ„طھط¶ط®ظٹظ… ط§ظ„ظ…ط­ظپط¸ط©"""
+        """الاستثمار القصير (4h - 1d): لتضخيم المحفظة"""
         rec = self.analyze("BTCUSDT", Interval.INTERVAL_4_HOURS)
         if "BUY" in rec:
             pnl = random.uniform(150, 400)
             self.memory.commit_trade("SWING", pnl)
 
 # =================================================================
-# 3. ط§ظ„ط¹ظ‚ظ„ ط§ظ„ظ…ط¯ط¨ط± (Background Brain Process)
+# 3. العقل المدبر (Background Brain Process)
 # =================================================================
 def brain_worker(engine):
-    """ط®ظٹط· ظٹط¹ظ…ظ„ ظپظٹ ط§ظ„ط®ظ„ظپظٹط© ظٹظ†ط³ظ‚ ط¨ظٹظ† ط§ظ„ط£ظ†ظ…ط§ط· ط§ظ„ط«ظ„ط§ط«ط©"""
+    """خيط يعمل في الخلفية ينسق بين الأنماط الثلاثة"""
     while True:
         try:
-            engine.run_scalping()    # ظٹظ„ظ‚ط· ظپط±طµ ظƒظ„ ط¯ظ‚ظٹظ‚ط©
+            engine.run_scalping()    # يلقط فرص كل دقيقة
             time.sleep(60)
-            engine.run_day_trading() # ظٹظ„ظ‚ط· ظپط±طµ ظƒظ„ ط±ط¨ط¹ ط³ط§ط¹ط©
+            engine.run_day_trading() # يلقط فرص كل ربع ساعة
             time.sleep(300)
-            engine.run_swing()       # ظٹط±ط§ط¬ط¹ ظپط±طµ ط§ظ„ط³ظˆظٹظ†ط¬
+            engine.run_swing()       # يراجع فرص السوينج
             time.sleep(3600)
         except:
             time.sleep(10)
 
 # =================================================================
-# 4. ط§ظ„ظˆط§ط¬ظ‡ط© ط§ظ„ظ‚ظٹط§ط¯ظٹط© (The Command Center)
+# 4. الواجهة القيادية (The Command Center)
 # =================================================================
 def main():
     st.set_page_config(page_title="WAHBA SOVEREIGN SYSTEM", layout="wide")
     memory = WahbaSovereignMemory()
     engine = WahbaTripleEngine(memory)
 
-    # طھط´ط؛ظٹظ„ ط§ظ„ط¹ظ‚ظ„ ط§ظ„ظ…ط¯ط¨ط±
+    # تشغيل العقل المدبر
     if 'brain_active' not in st.session_state:
         threading.Thread(target=brain_worker, args=(engine,), daemon=True).start()
         st.session_state.brain_active = True
 
-    # طھطµظ…ظٹظ… ط§ظ„ظˆط§ط¬ظ‡ط©
-    st.markdown("<h1 style='text-align:center; color:#f3ba2f;'>ًں¦… WAHBA SOVEREIGN AI SYSTEM</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; color:gray;'>ظ†ط¸ط§ظ… طھط¯ط§ظˆظ„ ط³ظٹط§ط¯ظٹ ظ…ط³طھظ‚ظ„ | ط¥ط¯ط§ط±ط© ظ…ط­ظپط¸ط© 5000$</p>", unsafe_allow_html=True)
+    # تصميم الواجهة
+    st.markdown("<h1 style='text-align:center; color:#f3ba2f;'>🦅 WAHBA SOVEREIGN AI SYSTEM</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:gray;'>نظام تداول سيادي مستقل | إدارة محفظة 5000$</p>", unsafe_allow_html=True)
 
-    # طµظپ ط§ظ„ط¥ط­طµط§ط¦ظٹط§طھ ط§ظ„ط±ط¦ظٹط³ظٹ
+    # صف الإحصائيات الرئيسي
     with sqlite3.connect(memory.db_name) as conn:
         wallet_data = conn.execute("SELECT balance FROM wallet").fetchone()[0]
         logs_df = pd.read_sql_query("SELECT * FROM trade_logs ORDER BY id DESC LIMIT 10", conn)
         stats_df = pd.read_sql_query("SELECT * FROM styles", conn)
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("طµط§ظپظٹ ط§ظ„ط±طµظٹط¯", f"${wallet_data:,.2f}", delta=f"{wallet_data-5000:,.2f}")
-    c2.metric("ظ†ظ…ط· ط§ظ„ط³ظƒط§ظ„ط¨ظٹظ†ط¬", f"{stats_df.iloc[0]['success_count']} طµظپظ‚ط©")
-    c3.metric("ظ†ظ…ط· ط§ظ„ط¯ط§ظٹ", f"{stats_df.iloc[1]['success_count']} طµظپظ‚ط©")
-    c4.metric("ظ†ظ…ط· ط§ظ„ط³ظˆظٹظ†ط¬", f"{stats_df.iloc[2]['success_count']} طµظپظ‚ط©")
+    c1.metric("صافي الرصيد", f"${wallet_data:,.2f}", delta=f"{wallet_data-5000:,.2f}")
+    c2.metric("نمط السكالبينج", f"{stats_df.iloc[0]['success_count']} صفقة")
+    c3.metric("نمط الداي", f"{stats_df.iloc[1]['success_count']} صفقة")
+    c4.metric("نمط السوينج", f"{stats_df.iloc[2]['success_count']} صفقة")
 
-    # طھظˆط²ظٹط¹ ط§ظ„ظ…ط­ظپط¸ط© ظˆط§ظ„ظ†ظ…ظˆ
+    # توزيع المحفظة والنمو
     col_left, col_right = st.columns([2, 1])
     
     with col_left:
-        st.write("### ًں“ˆ ظ…ط³ط§ط± ظ†ظ…ظˆ ط±ط£ط³ ط§ظ„ظ…ط§ظ„")
+        st.write("### 📈 مسار نمو رأس المال")
         if not logs_df.empty:
-            # ط±ط³ظ… ط¨ظٹط§ظ†ظٹ طھط±ط§ظƒظ…ظٹ ظ„ظ„ظ†ظ…ظˆ
+            # رسم بياني تراكمي للنمو
             st.line_chart(logs_df.set_index('time')['pnl'].cumsum() + 5000)
         else:
-            st.info("ط¬ط§ط±ظٹ طھط¬ظ…ظٹط¹ ط§ظ„ط¨ظٹط§ظ†ط§طھ ظ…ظ† ط§ظ„ط£ظ†ظ…ط§ط· ط§ظ„ط«ظ„ط§ط«ط©...")
+            st.info("جاري تجميع البيانات من الأنماط الثلاثة...")
 
     with col_right:
-        st.write("### âڑ™ï¸ڈ ط¥ط¯ط§ط±ط© ط§ظ„ط£ظ†ظ…ط§ط·")
-        st.info("ًںڈƒ **Scalping**: ظ†ط´ط· (1m)")
-        st.success("ًں“… **Day Trading**: ظ†ط´ط· (15m)")
-        st.warning("ًںگک **Swing**: ظ†ط´ط· (4h)")
+        st.write("### ⚙️ إدارة الأنماط")
+        st.info("🏃 **Scalping**: نشط (1m)")
+        st.success("📅 **Day Trading**: نشط (15m)")
+        st.warning("🐘 **Swing**: نشط (4h)")
         
-        with st.expander("ًں”گ ط¨ظˆط§ط¨ط© Binance API"):
+        with st.expander("🔐 بوابة Binance API"):
             st.text_input("API Key", type="password")
-            st.button("طھظپط¹ظٹظ„ ط§ظ„طھط¯ط§ظˆظ„ ط§ظ„ط­ظ‚ظٹظ‚ظٹ")
+            st.button("تفعيل التداول الحقيقي")
 
-    # ط³ط¬ظ„ ط§ظ„ط¹ظ…ظ„ظٹط§طھ ط§ظ„ظ„ط­ط¸ظٹ
-    st.write("### ًں“„ ط¢ط®ط± طھط­ط±ظƒط§طھ ط§ظ„ط¨ظ†ظٹ ط¢ط¯ظ… ط§ظ„ط±ظ‚ظ…ظٹ")
+    # سجل العمليات اللحظي
+    st.write("### 📄 آخر تحركات البني آدم الرقمي")
     st.table(logs_df[['time', 'style', 'pnl', 'status']])
 
-    # ظ…ط±ط§ظ‚ط¨ ط§ظ„ط³ط¹ط± ط§ظ„ظ„ط­ط¸ظٹ (ط³ط±ظٹط¹ ط¬ط¯ط§ظ‹)
+    # مراقب السعر اللحظي (سريع جداً)
     st.divider()
     monitor = st.empty()
     while True:
@@ -159,7 +159,7 @@ def main():
                 <div style="background:#000; border:2px solid #f3ba2f; padding:40px; border-radius:20px; text-align:center;">
                     <h2 style="color:white; margin:0;">BTC/USDT SPOT</h2>
                     <h1 style="font-size:5rem; color:#00FFCC; margin:10px 0;">${price:,.2f}</h1>
-                    <p style="color:gray;">ط§ظ„ظ†ط¸ط§ظ… ظٹط±ط§ظ‚ط¨ 3 ط£ظ†ظ…ط§ط· ط²ظ…ظ†ظٹط© ظپظٹ ط¢ظ† ظˆط§ط­ط¯</p>
+                    <p style="color:gray;">النظام يراقب 3 أنماط زمنية في آن واحد</p>
                 </div>
                 """, unsafe_allow_html=True)
         except: pass
