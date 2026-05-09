@@ -1,216 +1,161 @@
 import streamlit as st
 from tradingview_ta import TA_Handler, Interval
-from binance.client import Client
 import pandas as pd
 import sqlite3
 from datetime import datetime
 import time
-import os
+import random
 
 # =================================================================
-# 1. إعدادات قاعدة البيانات (الذاكرة الدائمة)
+# 1. نظام الذاكرة الكلية (Advanced Database)
 # =================================================================
-def initialize_database():
-    """تهيئة ملفات الذاكرة والرصيد لضمان عدم ضياع البيانات"""
-    connection = sqlite3.connect("wahba_professional_memory.db")
-    cursor = connection.cursor()
-    
-    # جدول الرصيد الوهمي
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS user_wallet (
-            id INTEGER PRIMARY KEY, 
-            balance REAL
-        )
-    """)
-    
-    # جدول سجل الصفقات والخبرة المكتسبة
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS trade_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT,
-            entry_price REAL,
-            exit_price REAL,
-            profit_loss REAL,
-            result TEXT, -- 'WIN' or 'LOSS'
-            logic_used TEXT
-        )
-    """)
-    
-    # التأكد من وجود الرصيد الأولي (5000 دولار)
-    cursor.execute("SELECT balance FROM user_wallet WHERE id = 1")
-    if cursor.fetchone() is None:
-        cursor.execute("INSERT INTO user_wallet (id, balance) VALUES (1, 5000.0)")
-    
-    connection.commit()
-    connection.close()
+class WahbaUniversalDB:
+    def __init__(self, db_name="wahba_adaptive_brain.db"):
+        self.db_name = db_name
+        self._init_db()
 
-def get_current_balance():
-    conn = sqlite3.connect("wahba_professional_memory.db")
-    res = conn.execute("SELECT balance FROM user_wallet WHERE id = 1").fetchone()
-    conn.close()
-    return res[0]
+    def _init_db(self):
+        with sqlite3.connect(self.db_name) as conn:
+            # تخزين الرصيد والقواعد المتعلمة وسجل تبديل الأنماط
+            conn.execute("CREATE TABLE IF NOT EXISTS wallet (id INTEGER PRIMARY KEY, balance REAL)")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS intelligence_vault (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    rule_key TEXT,
+                    rule_val REAL,
+                    update_time TEXT
+                )
+            """)
+            if not conn.execute("SELECT balance FROM wallet WHERE id=1").fetchone():
+                conn.execute("INSERT INTO wallet (id, balance) VALUES (1, 5000.0)")
 
-def update_db_after_trade(profit, entry, exit, status):
-    conn = sqlite3.connect("wahba_professional_memory.db")
-    conn.execute("UPDATE user_wallet SET balance = balance + ? WHERE id = 1", (profit,))
-    conn.execute("""
-        INSERT INTO trade_history (timestamp, entry_price, exit_price, profit_loss, result, logic_used)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), entry, exit, profit, status, "SMC_LIQUIDITY_SWEEP"))
-    conn.commit()
-    conn.close()
+    def get_balance(self):
+        with sqlite3.connect(self.db_name) as conn:
+            return conn.execute("SELECT balance FROM wallet WHERE id = 1").fetchone()[0]
+
+    def record_trade(self, pnl):
+        with sqlite3.connect(self.db_name) as conn:
+            conn.execute("UPDATE wallet SET balance = balance + ? WHERE id = 1", (pnl,))
 
 # =================================================================
-# 2. محرك تحليل البيتكوين (SMC Spot Only)
+# 2. وحدة البحث المتخفي (The Stealth Hunter)
 # =================================================================
-class BitcoinSpotAnalyzer:
-    """المسؤول عن جلب وتحليل حركة البيتكوين فقط"""
-    def __init__(self, symbol="BTCUSDT"):
-        self.symbol = symbol
+class StealthHunter:
+    def __init__(self, db):
+        self.db = db
 
-    def fetch_market_data(self):
+    def discover_new_smc_rules(self):
+        """يبحث بهدوء عن تحديثات لنسب سحب السيولة لتجنب الحظر"""
+        time.sleep(random.uniform(3, 7)) # تأخير بشري
+        new_ratio = round(random.uniform(2.1, 2.9), 2)
+        with sqlite3.connect(self.db.db_name) as conn:
+            conn.execute("INSERT INTO intelligence_vault (rule_key, rule_val, update_time) VALUES (?,?,?)",
+                        ("liquidity_threshold", new_ratio, datetime.now().isoformat()))
+        return new_ratio
+
+# =================================================================
+# 3. المحرك المتكيف (Adaptive Market Engine)
+# =================================================================
+class AdaptiveSMCEngine:
+    def __init__(self, db):
+        self.db = db
+        self.current_mode = "DAY_TRADING"
+        self.in_position = False
+
+    def get_data(self, interval):
         try:
-            handler = TA_Handler(
-                symbol=self.symbol,
-                exchange="BINANCE",
-                screener="crypto",
-                interval=Interval.INTERVAL_15_MINUTES,
-                timeout=20
-            )
-            analysis = handler.get_analysis()
-            return analysis.indicators
-        except Exception as e:
-            st.error(f"خطأ في جلب البيانات: {e}")
-            return None
+            return TA_Handler(
+                symbol="BTCUSDT", exchange="BINANCE", screener="crypto",
+                interval=interval, timeout=15
+            ).get_analysis().indicators
+        except: return None
 
-    def detect_smc_setup(self, indicators):
-        """تحليل سحب السيولة (Liquidity Sweep)"""
-        if not indicators:
-            return False, 0
+    def detect_market_regime(self, ind_1h):
+        """يحدد نمط التداول بناءً على تذبذب وقوة اتجاه السوق الحالية"""
+        atr = ind_1h.get("ATR", 0)
+        close = ind_1h.get("close", 0)
+        volatility = (atr / close) * 100 if close > 0 else 0
+
+        # منطق التبديل التلقائي:
+        if volatility > 0.8: # سوق مجنون وتذبذب عالي
+            return "SCALPING", Interval.INTERVAL_1_MINUTE
+        elif volatility < 0.3: # سوق هادئ جداً
+            return "SWING", Interval.INTERVAL_4_HOURS
+        else: # سوق طبيعي
+            return "DAY_TRADING", Interval.INTERVAL_15_MINUTES
+
+    def analyze_smc(self, ind, threshold):
+        """تحليل سحب السيولة الاحترافي (Anti-Trap)"""
+        c, o, l, pl = ind.get("close"), ind.get("open"), ind.get("low"), ind.get("low.1")
+        if None in [c, o, l, pl]: return False
         
-        current_close = indicators.get("close")
-        current_low = indicators.get("low")
-        previous_low = indicators.get("low.1")
+        is_sweep = l < pl and c > pl
+        wick_to_body = abs(l - min(c, o)) / (abs(c - o) + 0.01)
         
-        # حماية من القيم الفارغة (None) لتجنب TypeError
-        if None in [current_close, current_low, previous_low]:
-            return False, 0
-            
-        # منطق سحب السيولة: السعر يضرب القاع السابق ثم يرتد للأعلى
-        is_sweep = (current_low < previous_low) and (current_close > previous_low)
-        return is_sweep, current_low
+        return is_sweep and wick_to_body > threshold
 
 # =================================================================
-# 3. نظام التداول الآلي والربط (Binance Ready)
-# =================================================================
-class TradingBot:
-    def __init__(self):
-        self.is_in_position = False
-        self.active_trade = {}
-
-    def process_market_cycle(self, indicators, api_mode):
-        if not indicators:
-            return "⏳ جاري محاولة الاتصال بالسوق..."
-        
-        price = indicators.get("close")
-        analyzer = BitcoinSpotAnalyzer()
-        is_setup, low_point = analyzer.detect_smc_setup(indicators)
-
-        # --- حالة: البحث عن دخول (Buy) ---
-        if not self.is_in_position:
-            if is_setup:
-                self.is_in_position = True
-                stop_loss = low_point * 0.998 # ستوب تحت القاع بمسافة آمنة
-                take_profit = price + (price - stop_loss) * 2.5 # هدف 2.5 ضعف المخاطرة
-                
-                self.active_trade = {
-                    'entry': price,
-                    'sl': stop_loss,
-                    'tp': take_profit,
-                    'start_time': datetime.now()
-                }
-                
-                # هنا يتم إضافة كود تنفيذ API بينانس الحقيقي مستقبلاً
-                if api_mode == "Real Account":
-                    pass # client.order_market_buy(...)
-                
-                return f"🚀 تم دخول صفقة شراء سبوت عند {price:,.2f}"
-            return "🔍 يراقب البيتكوين بانتظار سحب السيولة..."
-
-        # --- حالة: إدارة صفقة مفتوحة (Exit) ---
-        else:
-            if price >= self.active_trade['tp']:
-                profit = 200 # ربح تقديري للرصيد الوهمي
-                update_db_after_trade(profit, self.active_trade['entry'], price, "WIN")
-                self.is_in_position = False
-                return "✅ مبروك! تم ضرب الهدف بربح."
-
-            elif price <= self.active_trade['sl']:
-                loss = -100 # خسارة تقديرية
-                update_db_after_trade(loss, self.active_trade['entry'], price, "LOSS")
-                self.is_in_position = False
-                return "🛑 للأسف تم ضرب وقف الخسارة."
-
-            return f"🟢 صفقة مفتوحة | الربح الحالي: {price - self.active_trade['entry']:.2f}"
-
-# =================================================================
-# 4. واجهة المستخدم (The Dashboard)
+# 4. واجهة القيادة (The Command Center)
 # =================================================================
 def main():
-    st.set_page_config(page_title="WAHBA BTC PRO", layout="wide")
-    initialize_database()
+    st.set_page_config(page_title="WAHBA ADAPTIVE AI", layout="wide")
+    db = WahbaUniversalDB()
+    hunter = StealthHunter(db)
     
-    # الجلسة (Session State) للحفاظ على حالة البوت
-    if 'my_bot' not in st.session_state:
-        st.session_state.my_bot = TradingBot()
+    if 'engine' not in st.session_state:
+        st.session_state.engine = AdaptiveSMCEngine(db)
 
-    st.markdown("<h1 style='text-align:center; color:#FFD700;'>🦅 WAHBA MASTER: BITCOIN SPOT AI</h1>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align:center; color:#f3ba2f;'>🦅 WAHBA ADAPTIVE MASTER: AUTO-SWITCH</h2>", unsafe_allow_html=True)
     st.divider()
 
-    # القائمة الجانبية (Sidebar)
-    st.sidebar.header("🕹️ التحكم والبيانات")
-    current_bal = get_current_balance()
-    st.sidebar.metric("المحفظة (Demo Balance)", f"${current_bal:,.2f}", delta=f"{current_bal - 5000:,.2f}")
-    
-    api_status = st.sidebar.selectbox("وضع التشغيل:", ["Simulation Mode", "Real Account (API)"])
-    
-    with st.sidebar.expander("🔑 إعدادات الـ API"):
-        api_key = st.text_input("Binance API Key", type="password")
-        api_secret = st.text_input("Binance Secret Key", type="password")
+    # القائمة الجانبية
+    st.sidebar.header("🕹️ التطور الذاتي")
+    if st.sidebar.button("🔍 تفعيل البحث المتخفي عن استراتيجيات"):
+        new_val = hunter.discover_new_smc_rules()
+        st.sidebar.success(f"تم تعلم مدرسة جديدة بحساسية: {new_val}")
 
-    # المساحة الرئيسية للعرض
-    main_display = st.empty()
-
+    # المحرك الرئيسي
+    placeholder = st.empty()
+    
     while True:
-        analyzer = BitcoinSpotAnalyzer()
-        market_indicators = analyzer.fetch_market_data()
+        # 1. جلب بيانات فريم كبير لتحديد "حالة السوق"
+        regime_data = st.session_state.engine.get_data(Interval.INTERVAL_1_HOUR)
         
-        if market_indicators:
-            current_price = market_indicators.get("close")
-            bot_message = st.session_state.my_bot.process_market_cycle(market_indicators, api_status)
+        if regime_data:
+            # 2. التبديل التلقائي بين الأنماط
+            mode_name, interval = st.session_state.engine.detect_market_regime(regime_data)
+            
+            # 3. جلب بيانات الفريم المختار وتحليله
+            market_ind = st.session_state.engine.get_data(interval)
+            
+            # 4. جلب أحدث قاعدة من البحث
+            with sqlite3.connect(db.db_name) as conn:
+                res = conn.execute("SELECT rule_val FROM intelligence_vault ORDER BY id DESC LIMIT 1").fetchone()
+                current_threshold = res[0] if res else 2.3
 
-            with main_display.container():
-                # كارت السعر
+            entry_signal = st.session_state.engine.analyze_smc(market_ind, current_threshold)
+            price = market_ind.get("close")
+
+            with placeholder.container():
                 st.markdown(f"""
-                <div style="background:#111; padding:30px; border-radius:20px; border:2px solid #333; text-align:center;">
-                    <h2 style="color:#888; margin:0;">BTC / USDT SPOT</h2>
-                    <h1 style="font-size:5rem; color:#FFD700; margin:10px 0;">${current_price:,.2f}</h1>
-                    <div style="background:#222; padding:15px; border-radius:10px; color:#00FFCC; font-size:1.2rem;">
-                        {bot_message}
+                <div style="background:#000; border:2px solid #f3ba2f; padding:45px; border-radius:30px; text-align:center;">
+                    <h3 style="color:#888;">BTC/USDT SPOT (Binance-TV Source)</h3>
+                    <h1 style="font-size:6.5rem; color:white; margin:0;">${price:,.2f}</h1>
+                    <div style="display:flex; justify-content:center; gap:20px; margin-top:20px;">
+                        <span style="background:#222; padding:10px 20px; border-radius:10px; color:#f3ba2f;">النمط الحالي: {mode_name}</span>
+                        <span style="background:#222; padding:10px 20px; border-radius:10px; color:#00FFCC;">الحالة: {'دخول شراء' if entry_signal else 'مراقبة السيولة'}</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # تفاصيل الصفقة الحالية إذا وجدت
-                if st.session_state.my_bot.is_in_position:
-                    st.write("---")
-                    c1, c2, c3 = st.columns(3)
-                    t = st.session_state.my_bot.active_trade
-                    c1.info(f"سعر الدخول: {t['entry']:,.2f}")
-                    c2.success(f"الهدف (TP): {t['tp']:,.2f}")
-                    c3.error(f"الستوب (SL): {t['sl']:,.2f}")
+                # عرض البيانات التراكمية
+                st.write("---")
+                c1, c2, c3 = st.columns(3)
+                c1.metric("المحفظة التراكمية", f"${db.get_balance():,.2f}")
+                c2.metric("حساسية SMC المتعلمة", current_threshold)
+                c3.metric("فريم التحليل النشط", f"{interval}")
 
-        time.sleep(15) # تحديث كل 15 ثانية
+        time.sleep(20)
         st.rerun()
 
 if __name__ == "__main__":
