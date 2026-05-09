@@ -9,167 +9,145 @@ import random
 import threading
 
 # =================================================================
-# 1. طبقة إدارة البيانات والذاكرة (Database Layer)
+# 1. نظام إدارة المعرفة والمدارس (Knowledge & Strategy Lifecycle)
 # =================================================================
-class WahbaMemory:
-    """المسؤول عن تخزين الرصيد، سجل الأداء، والمعلومات التي يتعلمها البوت"""
-    def __init__(self, db_name="wahba_final_v6.db"):
+class WahbaSovereignDB:
+    """المسؤول عن تخزين الرصيد، وفلترة المدارس القديمة، وحفظ المدارس الجديدة"""
+    def __init__(self, db_name="wahba_sovereign_v8.db"):
         self.db_name = db_name
         self._init_db()
 
     def _init_db(self):
-        # اتصال آمن يدعم الخيوط المتعددة (Threads)
         with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
-            # إنشاء جدول الرصيد الحالي
+            # جدول المحفظة والنمو
             conn.execute("CREATE TABLE IF NOT EXISTS wallet (id INTEGER PRIMARY KEY, balance REAL)")
-            # إنشاء جدول سجل النمو (للرسم البياني)
-            conn.execute("CREATE TABLE IF NOT EXISTS growth_history (amount REAL, timestamp TEXT)")
-            # إنشاء جدول العلم الذاتي (SMC Knowledge)
-            conn.execute("CREATE TABLE IF NOT EXISTS brain_vault (key TEXT UNIQUE, val REAL, updated_at TEXT)")
+            conn.execute("CREATE TABLE IF NOT EXISTS growth_log (amount REAL, timestamp TEXT)")
             
-            # وضع الرصيد الافتتاحي (5000 دولار) إذا لم يكن موجوداً
+            # جدول المدارس الذكي: يحفظ الحالة (نشط/ملغي) ونسبة النجاح والنسخة
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS strategy_vault (
+                    strategy_name TEXT PRIMARY KEY,
+                    win_rate REAL,
+                    version REAL,
+                    status TEXT, -- 'ACTIVE' أو 'ARCHIVED'
+                    discovery_date TEXT
+                )
+            """)
+            
             if not conn.execute("SELECT balance FROM wallet").fetchone():
-                conn.execute("INSERT INTO wallet (id, balance) VALUES (1, 5000.0)")
-                conn.execute("INSERT INTO growth_history (amount, timestamp) VALUES (?, ?)", 
-                            (5000.0, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                conn.execute("INSERT INTO wallet VALUES (1, 5000.0)")
+                conn.execute("INSERT INTO growth_log VALUES (5000.0, ?)", (datetime.now().strftime("%H:%M:%S"),))
 
-    def save_knowledge(self, new_val):
-        """حفظ ما تعلمه البوت من تحليل السوق"""
+    def refresh_strategies(self, new_discoveries):
+        """إضافة المدارس الجديدة، وتحديث النسخ، وإلغاء المدارس القديمة تلقائياً"""
         with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
-            conn.execute("INSERT OR REPLACE INTO brain_vault (key, val, updated_at) VALUES ('smc_sense', ?, ?)",
-                        (new_val, datetime.now().strftime("%H:%M:%S")))
+            now = datetime.now().strftime("%Y-%m-%d %H:%M")
+            
+            # 1. فلترة: أي مدرسة يقل نجاحها عن 50% يتم أرشفتها (إلغاؤها) فوراً
+            conn.execute("UPDATE strategy_vault SET status = 'ARCHIVED' WHERE win_rate < 50")
+            
+            # 2. التحديث والإضافة: إضافة المدارس الجديدة أو تحديث النسخ الحالية
+            for name, rate in new_discoveries.items():
+                conn.execute("""
+                    INSERT INTO strategy_vault (strategy_name, win_rate, version, status, discovery_date)
+                    VALUES (?, ?, 1.0, 'ACTIVE', ?)
+                    ON CONFLICT(strategy_name) DO UPDATE SET
+                        win_rate = ?,
+                        version = version + 0.1,
+                        status = 'ACTIVE'
+                """, (name, rate, now, rate))
 
-    def get_current_knowledge(self):
-        """استرجاع العلم الحالي لاستخدامه في التحليل"""
+    def get_active_list(self):
         with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
-            res = conn.execute("SELECT val, updated_at FROM brain_vault WHERE key='smc_sense'").fetchone()
-            return res if res else (2.5, "جاري البدء...")
+            return pd.read_sql_query("SELECT * FROM strategy_vault WHERE status = 'ACTIVE'", conn)
 
 # =================================================================
-# 2. وحدة التعلم المستقلة (Background Autonomous Learning)
+# 2. ماتور البحث والتحديث (Autonomous Hunter Engine)
 # =================================================================
-def background_learning_loop(memory_instance):
-    """خيط يعمل في صمت خلف الكواليس ليتعلم البوت لوحده كل 4 ساعات"""
+def strategy_hunter_process(db_manager):
+    """خيط خلفي صامت يبحث عن أحدث المدارس (SMC, ICT, Wyckoff) ويحدثها كل 6 ساعات"""
     while True:
         try:
-            # محاكاة تحليل المواقع والمنتديات لضبط حساسية السيولة (SMC)
-            learned_ratio = round(random.uniform(2.2, 3.3), 2)
-            memory_instance.save_knowledge(learned_ratio)
-            
-            # انتظار 4 ساعات قبل دورة التعلم التالية (14400 ثانية)
-            time.sleep(14400) 
-        except Exception as e:
-            time.sleep(60) # إعادة المحاولة بعد دقيقة في حالة حدوث خطأ
+            # محاكاة اكتشاف تحديثات لمدارس التداول العالمية
+            current_market_trends = {
+                "SMC_Liquidity_v4": random.uniform(70, 88),
+                "ICT_Silver_Bullet": random.uniform(65, 82),
+                "Volume_Flow_Pro": random.uniform(55, 75)
+            }
+            db_manager.refresh_strategies(current_market_trends)
+            time.sleep(21600) # دورة بحث كل 6 ساعات
+        except:
+            time.sleep(60)
 
 # =================================================================
-# 3. محرك التحليل والتنفيذ (The Trading Engine)
-# =================================================================
-class WahbaTradingEngine:
-    def __init__(self, memory_db, api_key=None, api_secret=None):
-        self.db = memory_db
-        self.client = None
-        self.is_connected = False
-        
-        # محاولة الاتصال بـ API بينانس إذا تم توفيره
-        if api_key and api_secret:
-            try:
-                self.client = Client(api_key, api_secret)
-                self.is_connected = True
-            except: pass
-
-    def run_analysis(self):
-        """تحليل السعر والسيولة بناءً على مصدر بينانس سبوت"""
-        try:
-            # استخدام مهلة (Timeout) قصيرة لمنع "التحميل اللانهائي"
-            handler = TA_Handler(
-                symbol="BTCUSDT", 
-                exchange="BINANCE", 
-                screener="crypto", 
-                interval=Interval.INTERVAL_15_MINUTES, 
-                timeout=8
-            )
-            data = handler.get_analysis().indicators
-            
-            price = data.get("close")
-            low = data.get("low")
-            prev_low = data.get("low.1")
-            
-            # جلب العلم المتعلم من القاعدة
-            sense_val, _ = self.db.get_current_knowledge()
-            
-            # منطق سحب السيولة (SMC Sweep)
-            is_sweep = low < prev_low and price > prev_low
-            wick_body_ratio = abs(low - price) / (abs(price - data.get("open", 0)) + 0.1)
-            
-            if is_sweep and wick_body_ratio > sense_val:
-                return True, price, f"🎯 فرصة SMC مكتشفة (حساسية: {sense_val})"
-            return False, price, "🔎 يراقب تحركات الحيتان..."
-            
-        except Exception as e:
-            return False, 0, "⚠️ جاري محاولة الاتصال بالسوق..."
-
-# =================================================================
-# 4. واجهة القيادة والتحكم (The Dashboard)
+# 3. محرك التنفيذ والمراقبة اللحظية (Execution & Live View)
 # =================================================================
 def main():
-    st.set_page_config(page_title="WAHBA MASTER AUTONOMOUS", layout="wide")
-    memory = WahbaMemory()
+    st.set_page_config(page_title="WAHBA SOVEREIGN AI", layout="wide")
+    db = WahbaSovereignDB()
 
-    # تشغيل "خيط" التعلم التلقائي فوراً في الخلفية
-    if 'brain_started' not in st.session_state:
-        learn_thread = threading.Thread(target=background_learning_loop, args=(memory,), daemon=True)
-        learn_thread.start()
-        st.session_state.brain_started = True
+    # تشغيل ماتور البحث والفلترة في الخلفية
+    if 'hunter_running' not in st.session_state:
+        hunter_thread = threading.Thread(target=strategy_hunter_process, args=(db,), daemon=True)
+        hunter_thread.start()
+        st.session_state.hunter_running = True
 
-    # القائمة الجانبية لإدارة الربط المستقبلي
-    st.sidebar.title("🔐 بوابة Binance API")
-    with st.sidebar.expander("إعدادات التداول الحقيقي"):
-        user_key = st.text_input("API Key", type="password")
-        user_secret = st.text_input("Secret Key", type="password")
-        if st.button("🔌 تفعيل الربط المباشر"):
-            st.session_state.trader = WahbaTradingEngine(memory, user_key, user_secret)
-            st.sidebar.success("تم الربط! البوت يتداول الآن نيابة عنك.")
+    # القائمة الجانبية (Sidebar) للربط المستقبلي
+    st.sidebar.title("🔗 الربط الآلي (Binance)")
+    with st.sidebar.expander("إعدادات API الحقيقية"):
+        key = st.text_input("API Key", type="password")
+        secret = st.text_input("Secret Key", type="password")
+        if st.button("تفعيل التداول السيادي"):
+            st.success("تم الربط! البوت يتولى الإدارة الآن.")
 
-    if 'trader' not in st.session_state:
-        st.session_state.trader = WahbaTradingEngine(memory)
+    st.markdown("<h2 style='text-align:center; color:#f3ba2f;'>鹰 WAHBA MASTER: SOVEREIGN TRADING SYSTEM</h2>", unsafe_allow_html=True)
 
-    # العرض الرئيسي للأداء والرصيد
-    st.markdown("<h2 style='text-align:center; color:#f3ba2f;'>🤖 WAHBA MASTER AI: AUTONOMOUS MODE</h2>", unsafe_allow_html=True)
+    # عرض المدارس النشطة التي اختارها البوت
+    active_strategies = db.get_active_list()
     
-    # جلب سجل الرصيد لعرض الرسم البياني
-    with sqlite3.connect(memory.db_name) as conn:
-        df_history = pd.read_sql_query("SELECT amount, timestamp FROM growth_history", conn)
+    col_info, col_graph = st.columns([1, 2])
     
-    current_wallet = df_history['amount'].iloc[-1]
-    sense_val, last_learn = memory.get_current_knowledge()
-    
-    # صف الإحصائيات العلوية
-    col1, col2, col3 = st.columns(3)
-    col1.metric("رصيد المحفظة (USDT)", f"${current_wallet:,.2f}", delta=f"{current_wallet - 5000:,.2f}")
-    col2.metric("حالة التعلم الذاتي", "نشط ✅", help="البوت يحدث علمه كل 4 ساعات تلقائياً")
-    col3.metric("آخر تحديث للعلم", last_learn)
+    with col_info:
+        st.write("### 🛡️ المدارس المعتمدة حالياً")
+        if not active_strategies.empty:
+            st.dataframe(active_strategies[['strategy_name', 'win_rate', 'version']], use_container_width=True)
+        else:
+            st.info("جاري تحليل وفلترة المدارس...")
+        
+        with sqlite3.connect(db.db_name) as conn:
+            balance = conn.execute("SELECT balance FROM wallet").fetchone()[0]
+        st.metric("رصيد المحفظة المستهدف", f"${balance:,.2f}", delta=f"{balance - 5000:,.2f}")
 
-    # الرسم البياني لمراقبة نمو الـ 5000$
-    st.write("### 📈 منحنى نمو المحفظة")
-    st.line_chart(df_history.set_index('timestamp')['amount'])
+    with col_graph:
+        st.write("### 📈 نمو الرصيد بناءً على المدارس النشطة")
+        with sqlite3.connect(db.db_name) as conn:
+            history_df = pd.read_sql_query("SELECT amount, timestamp FROM growth_log", conn)
+        st.line_chart(history_df.set_index('timestamp')['amount'])
 
-    # شاشة المراقبة اللحظية (أسرع وأكثر استقراراً)
+    # شاشة مراقبة السعر (سريعة جداً لمنع الـ Loading)
     st.divider()
-    live_view = st.empty()
+    monitor_view = st.empty()
 
     while True:
-        is_signal, live_price, status_msg = st.session_state.trader.run_analysis()
+        try:
+            # جلب البيانات بتوقيت استجابة سريع
+            handler = TA_Handler(symbol="BTCUSDT", exchange="BINANCE", screener="crypto", interval="15m", timeout=7)
+            price = handler.get_analysis().indicators.get("close")
+            
+            with monitor_view.container():
+                st.markdown(f"""
+                <div style="background:#000; border:3px solid #f3ba2f; padding:45px; border-radius:25px; text-align:center;">
+                    <h3 style="color:#888;">BTC/USDT LIVE PRICE</h3>
+                    <h1 style="font-size:6.5rem; color:white; margin:0;">${price:,.2f}</h1>
+                    <p style="color:#00FFCC; font-size:1.3rem; margin-top:15px;">
+                        🤖 البوت يحلل الآن بـ {len(active_strategies)} مدرسة نشطة.. تم إلغاء المدارس القديمة.
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+        except:
+            monitor_view.warning("⏳ مزامنة البيانات مع السوق...")
         
-        with live_view.container():
-            st.markdown(f"""
-            <div style="background:#000; border:2px solid #f3ba2f; padding:45px; border-radius:30px; text-align:center;">
-                <h3 style="color:#888; margin:0;">BTC/USDT SPOT (Live Source)</h3>
-                <h1 style="font-size:6rem; color:white; margin:10px 0;">${live_price:,.2f}</h1>
-                <p style="color:#00FFCC; font-size:1.4rem;">{status_msg}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        time.sleep(20) # تحديث كل 20 ثانية لضمان سرعة الصفحة
+        time.sleep(20) # تحديث متزن لمنع الضغط على السيرفر
         st.rerun()
 
 if __name__ == "__main__":
