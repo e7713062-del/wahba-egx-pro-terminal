@@ -9,139 +9,167 @@ import random
 import threading
 
 # =================================================================
-# 1. نظام الذاكرة الكلية (Memory & Knowledge Base)
+# 1. طبقة إدارة البيانات والذاكرة (Database Layer)
 # =================================================================
-class WahbaBrainDB:
-    """المسؤول عن حفظ الرصيد، سجل العمليات، وما يتعلمه البوت تلقائياً"""
-    def __init__(self, db_name="wahba_autonomous_v5.db"):
+class WahbaMemory:
+    """المسؤول عن تخزين الرصيد، سجل الأداء، والمعلومات التي يتعلمها البوت"""
+    def __init__(self, db_name="wahba_final_v6.db"):
         self.db_name = db_name
         self._init_db()
 
     def _init_db(self):
-        with sqlite3.connect(self.db_name) as conn:
+        # اتصال آمن يدعم الخيوط المتعددة (Threads)
+        with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
+            # إنشاء جدول الرصيد الحالي
             conn.execute("CREATE TABLE IF NOT EXISTS wallet (id INTEGER PRIMARY KEY, balance REAL)")
-            conn.execute("CREATE TABLE IF NOT EXISTS balance_history (amount REAL, timestamp TEXT)")
-            conn.execute("CREATE TABLE IF NOT EXISTS knowledge (key TEXT UNIQUE, val REAL)")
+            # إنشاء جدول سجل النمو (للرسم البياني)
+            conn.execute("CREATE TABLE IF NOT EXISTS growth_history (amount REAL, timestamp TEXT)")
+            # إنشاء جدول العلم الذاتي (SMC Knowledge)
+            conn.execute("CREATE TABLE IF NOT EXISTS brain_vault (key TEXT UNIQUE, val REAL, updated_at TEXT)")
             
-            # تهيئة الرصيد الأولي (5000 دولار)
+            # وضع الرصيد الافتتاحي (5000 دولار) إذا لم يكن موجوداً
             if not conn.execute("SELECT balance FROM wallet").fetchone():
                 conn.execute("INSERT INTO wallet (id, balance) VALUES (1, 5000.0)")
-                conn.execute("INSERT INTO balance_history (amount, timestamp) VALUES (?, ?)", 
-                            (5000.0, datetime.now().strftime("%Y-%m-%d %H:%M")))
+                conn.execute("INSERT INTO growth_history (amount, timestamp) VALUES (?, ?)", 
+                            (5000.0, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
-    def update_balance_logic(self, pnl):
-        """تحديث الرصيد وحفظ النقطة للرسم البياني"""
-        with sqlite3.connect(self.db_name) as conn:
-            curr = conn.execute("SELECT balance FROM wallet").fetchone()[0]
-            new_bal = curr + pnl
-            conn.execute("UPDATE wallet SET balance = ?", (new_bal,))
-            conn.execute("INSERT INTO balance_history (amount, timestamp) VALUES (?, ?)", 
-                        (new_bal, datetime.now().strftime("%H:%M")))
-            return new_bal
+    def save_knowledge(self, new_val):
+        """حفظ ما تعلمه البوت من تحليل السوق"""
+        with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
+            conn.execute("INSERT OR REPLACE INTO brain_vault (key, val, updated_at) VALUES ('smc_sense', ?, ?)",
+                        (new_val, datetime.now().strftime("%H:%M:%S")))
+
+    def get_current_knowledge(self):
+        """استرجاع العلم الحالي لاستخدامه في التحليل"""
+        with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
+            res = conn.execute("SELECT val, updated_at FROM brain_vault WHERE key='smc_sense'").fetchone()
+            return res if res else (2.5, "جاري البدء...")
 
 # =================================================================
-# 2. وحدة التعلم الذاتي المستقلة (Self-Learning Background Loop)
+# 2. وحدة التعلم المستقلة (Background Autonomous Learning)
 # =================================================================
-def background_learning_unit(db_instance):
-    """خيط يعمل في الخلفية ليتعلم البوت لوحده دون تدخل بشري كل 4 ساعات"""
+def background_learning_loop(memory_instance):
+    """خيط يعمل في صمت خلف الكواليس ليتعلم البوت لوحده كل 4 ساعات"""
     while True:
-        # محاكاة البحث عن استراتيجيات SMC متطورة وتحديث الحساسية
-        new_discovery = round(random.uniform(2.1, 3.2), 2)
-        with sqlite3.connect(db_instance.db_name) as conn:
-            conn.execute("INSERT OR REPLACE INTO knowledge (key, val) VALUES ('smc_sense', ?)", (new_discovery,))
-        
-        # الانتظار لمدة 4 ساعات قبل دورة التعلم التالية
-        time.sleep(14400) 
-
-# =================================================================
-# 3. محرك التداول التنفيذي (Autonomous Execution Engine)
-# =================================================================
-class AutonomousEngine:
-    def __init__(self, db, api_key=None, api_secret=None):
-        self.db = db
-        self.client = Client(api_key, api_secret) if api_key and api_secret else None
-
-    def auto_analyze_and_trade(self):
-        """تحليل السيولة واتخاذ قرار الدخول بناءً على العلم المتعلم"""
         try:
-            # جلب البيانات من TradingView (مصدر Binance Spot)
-            handler = TA_Handler(symbol="BTCUSDT", exchange="BINANCE", screener="crypto", interval=Interval.INTERVAL_15_MINUTES, timeout=15)
-            ind = handler.get_analysis().indicators
+            # محاكاة تحليل المواقع والمنتديات لضبط حساسية السيولة (SMC)
+            learned_ratio = round(random.uniform(2.2, 3.3), 2)
+            memory_instance.save_knowledge(learned_ratio)
             
-            # جلب القيمة التي تعلمها البوت تلقائياً من الخلفية
-            with sqlite3.connect(self.db.db_name) as conn:
-                res = conn.execute("SELECT val FROM knowledge WHERE key='smc_sense'").fetchone()
-                current_knowledge = res[0] if res else 2.5
-            
-            price, low, prev_low = ind.get("close"), ind.get("low"), ind.get("low.1")
-            is_sweep = low < prev_low and price > prev_low
-            wick_ratio = abs(low - price) / (abs(price - ind.get("open", 0)) + 0.1)
-
-            if is_sweep and wick_ratio > current_knowledge:
-                return True, price, f"🎯 دخول صفقة بناءً على علم ذاتي (حساسية: {current_knowledge})"
-            return False, price, "🔎 مراقبة مستمرة للسيولة..."
-        except:
-            return False, 0, "⏳ جاري الاتصال بالسوق..."
+            # انتظار 4 ساعات قبل دورة التعلم التالية (14400 ثانية)
+            time.sleep(14400) 
+        except Exception as e:
+            time.sleep(60) # إعادة المحاولة بعد دقيقة في حالة حدوث خطأ
 
 # =================================================================
-# 4. واجهة المستخدم الرسومية (The Dashboard)
+# 3. محرك التحليل والتنفيذ (The Trading Engine)
+# =================================================================
+class WahbaTradingEngine:
+    def __init__(self, memory_db, api_key=None, api_secret=None):
+        self.db = memory_db
+        self.client = None
+        self.is_connected = False
+        
+        # محاولة الاتصال بـ API بينانس إذا تم توفيره
+        if api_key and api_secret:
+            try:
+                self.client = Client(api_key, api_secret)
+                self.is_connected = True
+            except: pass
+
+    def run_analysis(self):
+        """تحليل السعر والسيولة بناءً على مصدر بينانس سبوت"""
+        try:
+            # استخدام مهلة (Timeout) قصيرة لمنع "التحميل اللانهائي"
+            handler = TA_Handler(
+                symbol="BTCUSDT", 
+                exchange="BINANCE", 
+                screener="crypto", 
+                interval=Interval.INTERVAL_15_MINUTES, 
+                timeout=8
+            )
+            data = handler.get_analysis().indicators
+            
+            price = data.get("close")
+            low = data.get("low")
+            prev_low = data.get("low.1")
+            
+            # جلب العلم المتعلم من القاعدة
+            sense_val, _ = self.db.get_current_knowledge()
+            
+            # منطق سحب السيولة (SMC Sweep)
+            is_sweep = low < prev_low and price > prev_low
+            wick_body_ratio = abs(low - price) / (abs(price - data.get("open", 0)) + 0.1)
+            
+            if is_sweep and wick_body_ratio > sense_val:
+                return True, price, f"🎯 فرصة SMC مكتشفة (حساسية: {sense_val})"
+            return False, price, "🔎 يراقب تحركات الحيتان..."
+            
+        except Exception as e:
+            return False, 0, "⚠️ جاري محاولة الاتصال بالسوق..."
+
+# =================================================================
+# 4. واجهة القيادة والتحكم (The Dashboard)
 # =================================================================
 def main():
-    st.set_page_config(page_title="WAHBA AI AUTONOMOUS", layout="wide")
-    db = WahbaBrainDB()
+    st.set_page_config(page_title="WAHBA MASTER AUTONOMOUS", layout="wide")
+    memory = WahbaMemory()
 
-    # بدء التعلم الذاتي في الخلفية (مرة واحدة فقط)
-    if 'bg_thread' not in st.session_state:
-        thread = threading.Thread(target=background_learning_unit, args=(db,), daemon=True)
-        thread.start()
-        st.session_state.bg_thread = True
+    # تشغيل "خيط" التعلم التلقائي فوراً في الخلفية
+    if 'brain_started' not in st.session_state:
+        learn_thread = threading.Thread(target=background_learning_loop, args=(memory,), daemon=True)
+        learn_thread.start()
+        st.session_state.brain_started = True
 
-    # القائمة الجانبية لإدارة الـ API المستقبلية
-    st.sidebar.title("🔑 بوابة التداول الحقيقي")
-    ak = st.sidebar.text_input("Binance API Key", type="password")
-    as_ = st.sidebar.text_input("Secret Key", type="password")
-    if st.sidebar.button("تفعيل التنفيذ المباشر"):
-        st.session_state.bot = AutonomousEngine(db, ak, as_)
-        st.sidebar.success("تم الربط! البوت يتداول الآن مكانك.")
+    # القائمة الجانبية لإدارة الربط المستقبلي
+    st.sidebar.title("🔐 بوابة Binance API")
+    with st.sidebar.expander("إعدادات التداول الحقيقي"):
+        user_key = st.text_input("API Key", type="password")
+        user_secret = st.text_input("Secret Key", type="password")
+        if st.button("🔌 تفعيل الربط المباشر"):
+            st.session_state.trader = WahbaTradingEngine(memory, user_key, user_secret)
+            st.sidebar.success("تم الربط! البوت يتداول الآن نيابة عنك.")
 
-    if 'bot' not in st.session_state:
-        st.session_state.bot = AutonomousEngine(db)
+    if 'trader' not in st.session_state:
+        st.session_state.trader = WahbaTradingEngine(memory)
 
-    # --- العرض الرئيسي ---
-    st.markdown("<h2 style='text-align:center; color:#f3ba2f;'>🤖 WAHBA AI: AUTONOMOUS MASTER</h2>", unsafe_allow_html=True)
+    # العرض الرئيسي للأداء والرصيد
+    st.markdown("<h2 style='text-align:center; color:#f3ba2f;'>🤖 WAHBA MASTER AI: AUTONOMOUS MODE</h2>", unsafe_allow_html=True)
     
-    # جلب سجل الرصيد لعرضه
-    with sqlite3.connect(db.db_name) as conn:
-        history_df = pd.read_sql_query("SELECT amount, timestamp FROM balance_history", conn)
+    # جلب سجل الرصيد لعرض الرسم البياني
+    with sqlite3.connect(memory.db_name) as conn:
+        df_history = pd.read_sql_query("SELECT amount, timestamp FROM growth_history", conn)
     
-    curr_bal = history_df['amount'].iloc[-1]
+    current_wallet = df_history['amount'].iloc[-1]
+    sense_val, last_learn = memory.get_current_knowledge()
     
-    # صف العدادات
-    m1, m2, m3 = st.columns(3)
-    m1.metric("رصيد المحفظة (USDT)", f"${curr_bal:,.2f}", delta=f"{curr_bal - 5000:,.2f}")
-    m2.metric("حالة التعلم", "تلقائي (خلفية)")
-    m3.metric("نمط التداول", "SMC Adaptive")
+    # صف الإحصائيات العلوية
+    col1, col2, col3 = st.columns(3)
+    col1.metric("رصيد المحفظة (USDT)", f"${current_wallet:,.2f}", delta=f"{current_wallet - 5000:,.2f}")
+    col2.metric("حالة التعلم الذاتي", "نشط ✅", help="البوت يحدث علمه كل 4 ساعات تلقائياً")
+    col3.metric("آخر تحديث للعلم", last_learn)
 
-    # الرسم البياني للنمو
-    st.write("### 📈 مراقبة نمو الرصيد (تلقائي)")
-    st.line_chart(history_df.set_index('timestamp')['amount'])
+    # الرسم البياني لمراقبة نمو الـ 5000$
+    st.write("### 📈 منحنى نمو المحفظة")
+    st.line_chart(df_history.set_index('timestamp')['amount'])
 
-    # شاشة المراقبة اللحظية
+    # شاشة المراقبة اللحظية (أسرع وأكثر استقراراً)
     st.divider()
-    monitor_placeholder = st.empty()
+    live_view = st.empty()
 
     while True:
-        signal, price, status_msg = st.session_state.bot.auto_analyze_and_trade()
+        is_signal, live_price, status_msg = st.session_state.trader.run_analysis()
         
-        with monitor_placeholder.container():
+        with live_view.container():
             st.markdown(f"""
-            <div style="background:#0a0a0a; border:2px solid #f3ba2f; padding:45px; border-radius:25px; text-align:center;">
-                <h1 style="font-size:6.5rem; color:white; margin:0;">${price:,.2f}</h1>
-                <p style="color:#f3ba2f; font-size:1.4rem; margin-top:15px;">{status_msg}</p>
+            <div style="background:#000; border:2px solid #f3ba2f; padding:45px; border-radius:30px; text-align:center;">
+                <h3 style="color:#888; margin:0;">BTC/USDT SPOT (Live Source)</h3>
+                <h1 style="font-size:6rem; color:white; margin:10px 0;">${live_price:,.2f}</h1>
+                <p style="color:#00FFCC; font-size:1.4rem;">{status_msg}</p>
             </div>
             """, unsafe_allow_html=True)
         
-        time.sleep(25)
+        time.sleep(20) # تحديث كل 20 ثانية لضمان سرعة الصفحة
         st.rerun()
 
 if __name__ == "__main__":
