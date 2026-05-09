@@ -1,6 +1,5 @@
 streamlit
 tradingview-ta
+python-binance
 pandas
-numpy
 scikit-learn
-requests
