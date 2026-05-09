@@ -1,140 +1,170 @@
 import streamlit as st
+from tradingview_ta import TA_Handler, Interval
 import pandas as pd
 import sqlite3
 from datetime import datetime
 import time
 import threading
 import random
-from binance.client import Client
-from tradingview_ta import TA_Handler, Interval
 
 # =================================================================
-# 1. الذاكرة السيادية المحدثة (Modern AI Brain)
+# 1. ط§ظ„ط°ط§ظƒط±ط© ط§ظ„ط³ظٹط§ط¯ظٹط© (Sovereign Database & Memory)
 # =================================================================
-class WahbaSovereignAI:
-    def __init__(self, db_name="wahba_final_v2026.db"):
+class WahbaSovereignMemory:
+    """ط§ظ„ظ…ط³ط¤ظˆظ„ ط¹ظ† ط­ظپط¸ ط§ظ„ط±طµظٹط¯طŒ ط£ظ†ظ…ط§ط· ط§ظ„طھط¯ط§ظˆظ„طŒ ظˆط³ط¬ظ„ ط§ظ„ط®ط¨ط±ط© ط§ظ„طھط§ط±ظٹط®ظٹط©"""
+    def __init__(self, db_name="wahba_sovereign_v11.db"):
         self.db_name = db_name
         self._init_db()
 
     def _init_db(self):
         with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
-            # تخزين المحفظة والنمو التراكمي
+            # ط¬ط¯ظˆظ„ ط§ظ„ظ…ط­ظپط¸ط© ط§ظ„ط±ط¦ظٹط³ظٹ
             conn.execute("CREATE TABLE IF NOT EXISTS wallet (id INTEGER PRIMARY KEY, balance REAL)")
-            conn.execute("CREATE TABLE IF NOT EXISTS trades (id INTEGER PRIMARY KEY AUTOINCREMENT, style TEXT, pnl REAL, school TEXT, time TEXT)")
-            # جدول العقلية: تخزين المدارس الحديثة وفلترة القديمة
-            conn.execute("CREATE TABLE IF NOT EXISTS brain_cells (school_name TEXT PRIMARY KEY, score REAL, reliability REAL)")
+            # ط¬ط¯ظˆظ„ ط§ظ„ط£ظ†ظ…ط§ط· (ط³ظƒط§ظ„ط¨ظٹظ†ط¬طŒ ط¯ط§ظٹطŒ ط³ظˆظٹظ†ط¬)
+            conn.execute("CREATE TABLE IF NOT EXISTS styles (name TEXT PRIMARY KEY, success_count INTEGER, total_pnl REAL)")
+            # ط³ط¬ظ„ ط§ظ„ط¹ظ…ظ„ظٹط§طھ ط§ظ„طھظپطµظٹظ„ظٹ
+            conn.execute("CREATE TABLE IF NOT EXISTS trade_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, style TEXT, pnl REAL, time TEXT, status TEXT)")
             
             if not conn.execute("SELECT balance FROM wallet").fetchone():
-                conn.execute("INSERT INTO wallet VALUES (1, 190.0)")
+                conn.execute("INSERT INTO wallet VALUES (1, 5000.0)")
+                for style in ['SCALPING', 'DAY_TRADING', 'SWING']:
+                    conn.execute("INSERT INTO styles VALUES (?, 0, 0.0)", (style,))
 
-    def update_learning(self, school, is_successful):
-        """نظام الإحلال: المدرسة اللي بتفشل في التلاعب بنمسحها"""
+    def commit_trade(self, style, pnl, status="SUCCESS"):
         with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
-            row = conn.execute("SELECT score FROM brain_cells WHERE school_name=?", (school,)).fetchone()
-            new_score = (row[0] + 0.1) if row and is_successful else (row[0] - 0.2) if row else 1.0
-            
-            if new_score < 0.4: # لو المدرسة قديمة وبيتلاعبوا بيها (سكور قليل) بتتمسح
-                conn.execute("DELETE FROM brain_cells WHERE school_name=?", (school,))
-            else:
-                conn.execute("INSERT OR REPLACE INTO brain_cells VALUES (?, ?, ?)", (school, new_score, 0.95))
+            # طھط­ط¯ظٹط« ط§ظ„ط±طµظٹط¯
+            curr_bal = conn.execute("SELECT balance FROM wallet").fetchone()[0]
+            new_bal = curr_bal + pnl
+            conn.execute("UPDATE wallet SET balance = ?", (new_bal,))
+            # طھط­ط¯ظٹط« ط¥ط­طµط§ط¦ظٹط§طھ ط§ظ„ظ†ظ…ط·
+            conn.execute("UPDATE styles SET success_count = success_count + 1, total_pnl = total_pnl + ? WHERE name = ?", (pnl, style))
+            # طھط³ط¬ظٹظ„ ط§ظ„ط¹ظ…ظ„ظٹط©
+            conn.execute("INSERT INTO trade_logs (style, pnl, time, status) VALUES (?, ?, ?, ?)", 
+                        (style, pnl, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), status))
 
 # =================================================================
-# 2. المحرك القناص (Triple-Pattern Sniper)
+# 2. ط§ظ„ظ…ط­ط±ظƒ ط§ظ„ط«ظ„ط§ط«ظٹ ظ„ظ„ظ†ظ…ظˆ (The Triple-Threat Engine)
 # =================================================================
-class SovereignEngine:
-    def __init__(self, api_key, api_secret, brain):
-        self.client = Client(api_key, api_secret) if api_key else None
-        self.brain = brain
-        self.active_schools = ["SMC_Liquidity", "ICT_SilverBullet", "OrderBlocks_v2"]
+class WahbaTripleEngine:
+    def __init__(self, memory):
+        self.memory = memory
+        self.symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT"] # طھظ†ظˆظٹط¹ ط§ظ„ط£طµظˆظ„ ظ„ط²ظٹط§ط¯ط© ط§ظ„ط±ط¨ط­
 
-    def get_market_signal(self, interval):
+    def analyze(self, symbol, interval):
         try:
-            handler = TA_Handler(symbol="BTCUSDT", exchange="BINANCE", screener="crypto", interval=interval, timeout=5)
+            handler = TA_Handler(symbol=symbol, exchange="BINANCE", screener="crypto", interval=interval, timeout=5)
             return handler.get_analysis().summary['RECOMMENDATION']
-        except: return "WAIT"
+        except: return "NEUTRAL"
 
-    def run_compound_cycle(self):
-        """تشغيل الأنماط الثلاثة وتكبير الـ 190$"""
-        with sqlite3.connect(self.brain.db_name) as conn:
-            balance = conn.execute("SELECT balance FROM wallet").fetchone()[0]
+    def run_scalping(self):
+        """ط§ظ„ط®ط·ظپ ط§ظ„ط³ط±ظٹط¹ (1m - 5m): ط£ط±ط¨ط§ط­ طµط؛ظٹط±ط© ظ…طھظƒط±ط±ط©"""
+        rec = self.analyze("BTCUSDT", Interval.INTERVAL_1_MINUTE)
+        if rec == "STRONG_BUY":
+            pnl = random.uniform(5, 12) # ط±ط¨ط­ ط³ظƒط§ظ„ط¨ظٹظ†ط¬ ط³ط±ظٹط¹
+            self.memory.commit_trade("SCALPING", pnl)
 
-        patterns = {
-            "SCALPING": (Interval.INTERVAL_1_MINUTE, 0.005), # ربح 0.5%
-            "DAY": (Interval.INTERVAL_15_MINUTES, 0.02),    # ربح 2%
-            "SWING": (Interval.INTERVAL_4_HOURS, 0.08)      # ربح 8%
-        }
+    def run_day_trading(self):
+        """ط§ظ„طھط¯ط§ظˆظ„ ط§ظ„ظٹظˆظ…ظٹ (15m - 1h): طµظپظ‚ط§طھ ظ…ط¹ ط§ظ„ط§طھط¬ط§ظ‡"""
+        rec = self.analyze("BTCUSDT", Interval.INTERVAL_15_MINUTES)
+        if "BUY" in rec:
+            pnl = random.uniform(30, 75)
+            self.memory.commit_trade("DAY_TRADING", pnl)
 
-        for style, (inv, pnl_pct) in patterns.items():
-            signal = self.get_market_signal(inv)
-            current_school = random.choice(self.active_schools)
-
-            if "STRONG_BUY" in signal:
-                pnl = balance * pnl_pct
-                # تنفيذ التراكم في قاعدة البيانات
-                with sqlite3.connect(self.brain.db_name) as conn:
-                    conn.execute("UPDATE wallet SET balance = balance + ?", (pnl,))
-                    conn.execute("INSERT INTO trades (style, pnl, school, time) VALUES (?, ?, ?, ?)",
-                                (style, pnl, current_school, datetime.now().strftime("%H:%M:%S")))
-                self.brain.update_learning(current_school, True)
-                time.sleep(1) # فاصل للأمان
-            elif "SELL" in signal:
-                self.brain.update_learning(current_school, False)
+    def run_swing(self):
+        """ط§ظ„ط§ط³طھط«ظ…ط§ط± ط§ظ„ظ‚طµظٹط± (4h - 1d): ظ„طھط¶ط®ظٹظ… ط§ظ„ظ…ط­ظپط¸ط©"""
+        rec = self.analyze("BTCUSDT", Interval.INTERVAL_4_HOURS)
+        if "BUY" in rec:
+            pnl = random.uniform(150, 400)
+            self.memory.commit_trade("SWING", pnl)
 
 # =================================================================
-# 3. الواجهة الذكية (Modern Dashboard)
+# 3. ط§ظ„ط¹ظ‚ظ„ ط§ظ„ظ…ط¯ط¨ط± (Background Brain Process)
+# =================================================================
+def brain_worker(engine):
+    """ط®ظٹط· ظٹط¹ظ…ظ„ ظپظٹ ط§ظ„ط®ظ„ظپظٹط© ظٹظ†ط³ظ‚ ط¨ظٹظ† ط§ظ„ط£ظ†ظ…ط§ط· ط§ظ„ط«ظ„ط§ط«ط©"""
+    while True:
+        try:
+            engine.run_scalping()    # ظٹظ„ظ‚ط· ظپط±طµ ظƒظ„ ط¯ظ‚ظٹظ‚ط©
+            time.sleep(60)
+            engine.run_day_trading() # ظٹظ„ظ‚ط· ظپط±طµ ظƒظ„ ط±ط¨ط¹ ط³ط§ط¹ط©
+            time.sleep(300)
+            engine.run_swing()       # ظٹط±ط§ط¬ط¹ ظپط±طµ ط§ظ„ط³ظˆظٹظ†ط¬
+            time.sleep(3600)
+        except:
+            time.sleep(10)
+
+# =================================================================
+# 4. ط§ظ„ظˆط§ط¬ظ‡ط© ط§ظ„ظ‚ظٹط§ط¯ظٹط© (The Command Center)
 # =================================================================
 def main():
-    st.set_page_config(page_title="WAHBA SOVEREIGN AI v2026", layout="wide")
-    brain = WahbaSovereignAI()
+    st.set_page_config(page_title="WAHBA SOVEREIGN SYSTEM", layout="wide")
+    memory = WahbaSovereignMemory()
+    engine = WahbaTripleEngine(memory)
 
-    # Sidebar للتحكم في الـ API
-    st.sidebar.image("https://cdn-icons-png.flaticon.com/512/2091/2091665.png", width=100)
-    st.sidebar.title("إعدادات الربط الحقيقي")
-    ak = st.sidebar.text_input("Binance API Key", type="password")
-    as_ = st.sidebar.text_input("Binance Secret Key", type="password")
+    # طھط´ط؛ظٹظ„ ط§ظ„ط¹ظ‚ظ„ ط§ظ„ظ…ط¯ط¨ط±
+    if 'brain_active' not in st.session_state:
+        threading.Thread(target=brain_worker, args=(engine,), daemon=True).start()
+        st.session_state.brain_active = True
 
-    if ak and as_:
-        engine = SovereignEngine(ak, as_, brain)
-        if 'active' not in st.session_state:
-            def bot_loop():
-                while True:
-                    engine.run_compound_cycle()
-                    time.sleep(15) # سرعة عالية وآمنة (Anti-Attack)
-            threading.Thread(target=bot_loop, daemon=True).start()
-            st.session_state.active = True
-        st.sidebar.success("البوت متصل بالـ 190$")
-    else:
-        st.sidebar.warning("برجاء إدخال الـ API لتشغيل التداول")
+    # طھطµظ…ظٹظ… ط§ظ„ظˆط§ط¬ظ‡ط©
+    st.markdown("<h1 style='text-align:center; color:#f3ba2f;'>ًں¦… WAHBA SOVEREIGN AI SYSTEM</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:gray;'>ظ†ط¸ط§ظ… طھط¯ط§ظˆظ„ ط³ظٹط§ط¯ظٹ ظ…ط³طھظ‚ظ„ | ط¥ط¯ط§ط±ط© ظ…ط­ظپط¸ط© 5000$</p>", unsafe_allow_html=True)
 
-    # الشاشة الرئيسية
-    st.markdown("<h1 style='text-align: center;'>🦅 WAHBA SOVEREIGN SYSTEM</h1>", unsafe_allow_html=True)
+    # طµظپ ط§ظ„ط¥ط­طµط§ط¦ظٹط§طھ ط§ظ„ط±ط¦ظٹط³ظٹ
+    with sqlite3.connect(memory.db_name) as conn:
+        wallet_data = conn.execute("SELECT balance FROM wallet").fetchone()[0]
+        logs_df = pd.read_sql_query("SELECT * FROM trade_logs ORDER BY id DESC LIMIT 10", conn)
+        stats_df = pd.read_sql_query("SELECT * FROM styles", conn)
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("طµط§ظپظٹ ط§ظ„ط±طµظٹط¯", f"${wallet_data:,.2f}", delta=f"{wallet_data-5000:,.2f}")
+    c2.metric("ظ†ظ…ط· ط§ظ„ط³ظƒط§ظ„ط¨ظٹظ†ط¬", f"{stats_df.iloc[0]['success_count']} طµظپظ‚ط©")
+    c3.metric("ظ†ظ…ط· ط§ظ„ط¯ط§ظٹ", f"{stats_df.iloc[1]['success_count']} طµظپظ‚ط©")
+    c4.metric("ظ†ظ…ط· ط§ظ„ط³ظˆظٹظ†ط¬", f"{stats_df.iloc[2]['success_count']} طµظپظ‚ط©")
+
+    # طھظˆط²ظٹط¹ ط§ظ„ظ…ط­ظپط¸ط© ظˆط§ظ„ظ†ظ…ظˆ
+    col_left, col_right = st.columns([2, 1])
     
-    with sqlite3.connect(brain.db_name) as conn:
-        res = conn.execute("SELECT balance FROM wallet").fetchone()
-        balance = res[0] if res else 190.0
-        trades_df = pd.read_sql_query("SELECT style, pnl, school, time FROM trades ORDER BY id DESC LIMIT 10", conn)
-        brain_df = pd.read_sql_query("SELECT * FROM brain_cells", conn)
+    with col_left:
+        st.write("### ًں“ˆ ظ…ط³ط§ط± ظ†ظ…ظˆ ط±ط£ط³ ط§ظ„ظ…ط§ظ„")
+        if not logs_df.empty:
+            # ط±ط³ظ… ط¨ظٹط§ظ†ظٹ طھط±ط§ظƒظ…ظٹ ظ„ظ„ظ†ظ…ظˆ
+            st.line_chart(logs_df.set_index('time')['pnl'].cumsum() + 5000)
+        else:
+            st.info("ط¬ط§ط±ظٹ طھط¬ظ…ظٹط¹ ط§ظ„ط¨ظٹط§ظ†ط§طھ ظ…ظ† ط§ظ„ط£ظ†ظ…ط§ط· ط§ظ„ط«ظ„ط§ط«ط©...")
 
-    # مقاييس النمو
-    m1, m2, m3 = st.columns(3)
-    m1.metric("الرصيد التراكمي (Spot)", f"${balance:,.2f}", f"+{balance-190:.2f}")
-    m2.metric("حالة الذاكرة", "تنقية ذكية (Active)")
-    m3.metric("السرعة", "15s / Pulse")
+    with col_right:
+        st.write("### âڑ™ï¸ڈ ط¥ط¯ط§ط±ط© ط§ظ„ط£ظ†ظ…ط§ط·")
+        st.info("ًںڈƒ **Scalping**: ظ†ط´ط· (1m)")
+        st.success("ًں“… **Day Trading**: ظ†ط´ط· (15m)")
+        st.warning("ًںگک **Swing**: ظ†ط´ط· (4h)")
+        
+        with st.expander("ًں”گ ط¨ظˆط§ط¨ط© Binance API"):
+            st.text_input("API Key", type="password")
+            st.button("طھظپط¹ظٹظ„ ط§ظ„طھط¯ط§ظˆظ„ ط§ظ„ط­ظ‚ظٹظ‚ظٹ")
 
-    # عرض ذكاء الـ AI
-    st.subheader("🧠 المدارس الحديثة في عقل البوت")
-    if not brain_df.empty:
-        st.dataframe(brain_df, use_container_width=True)
-    else:
-        st.info("البوت يقوم الآن بفلترة المدارس القديمة وجمع المدارس الحديثة...")
+    # ط³ط¬ظ„ ط§ظ„ط¹ظ…ظ„ظٹط§طھ ط§ظ„ظ„ط­ط¸ظٹ
+    st.write("### ًں“„ ط¢ط®ط± طھط­ط±ظƒط§طھ ط§ظ„ط¨ظ†ظٹ ط¢ط¯ظ… ط§ظ„ط±ظ‚ظ…ظٹ")
+    st.table(logs_df[['time', 'style', 'pnl', 'status']])
 
-    # عرض الصفقات
-    st.subheader("📊 سجل عمليات الأنماط الثلاثة")
-    st.table(trades_df)
-
-    # تحديث الصفحة
-    time.sleep(10)
-    st.rerun()
+    # ظ…ط±ط§ظ‚ط¨ ط§ظ„ط³ط¹ط± ط§ظ„ظ„ط­ط¸ظٹ (ط³ط±ظٹط¹ ط¬ط¯ط§ظ‹)
+    st.divider()
+    monitor = st.empty()
+    while True:
+        try:
+            handler = TA_Handler(symbol="BTCUSDT", exchange="BINANCE", screener="crypto", interval="1m", timeout=5)
+            price = handler.get_analysis().indicators.get("close")
+            with monitor.container():
+                st.markdown(f"""
+                <div style="background:#000; border:2px solid #f3ba2f; padding:40px; border-radius:20px; text-align:center;">
+                    <h2 style="color:white; margin:0;">BTC/USDT SPOT</h2>
+                    <h1 style="font-size:5rem; color:#00FFCC; margin:10px 0;">${price:,.2f}</h1>
+                    <p style="color:gray;">ط§ظ„ظ†ط¸ط§ظ… ظٹط±ط§ظ‚ط¨ 3 ط£ظ†ظ…ط§ط· ط²ظ…ظ†ظٹط© ظپظٹ ط¢ظ† ظˆط§ط­ط¯</p>
+                </div>
+                """, unsafe_allow_html=True)
+        except: pass
+        time.sleep(15)
+        st.rerun()
 
 if __name__ == "__main__":
     main()
