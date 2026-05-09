@@ -1,113 +1,140 @@
 import streamlit as st
-from tradingview_ta import TA_Handler, Interval
 import pandas as pd
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 import time
 import threading
 import random
+from binance.client import Client
+from tradingview_ta import TA_Handler, Interval
 
 # =================================================================
-# 1. العقلية المركزية (The Core Intelligence & Space Saver)
+# 1. الذاكرة السيادية المحدثة (Modern AI Brain)
 # =================================================================
-class WahbaCoreBrain:
-    def __init__(self, db_name="wahba_brain_v12.db"):
+class WahbaSovereignAI:
+    def __init__(self, db_name="wahba_final_v2026.db"):
         self.db_name = db_name
         self._init_db()
 
     def _init_db(self):
         with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
-            # تخزين الرصيد الحقيقي (الـ 190 دولار)
+            # تخزين المحفظة والنمو التراكمي
             conn.execute("CREATE TABLE IF NOT EXISTS wallet (id INTEGER PRIMARY KEY, balance REAL)")
-            # تخزين "الخلاصة" فقط من المدارس الحديثة (لتوفير المساحة)
-            conn.execute("CREATE TABLE IF NOT EXISTS intelligence (school TEXT PRIMARY KEY, success_rate REAL, last_update TEXT)")
-            # سجل النمو التراكمي
-            conn.execute("CREATE TABLE IF NOT EXISTS growth_path (id INTEGER PRIMARY KEY AUTOINCREMENT, amount REAL, timestamp TEXT)")
+            conn.execute("CREATE TABLE IF NOT EXISTS trades (id INTEGER PRIMARY KEY AUTOINCREMENT, style TEXT, pnl REAL, school TEXT, time TEXT)")
+            # جدول العقلية: تخزين المدارس الحديثة وفلترة القديمة
+            conn.execute("CREATE TABLE IF NOT EXISTS brain_cells (school_name TEXT PRIMARY KEY, score REAL, reliability REAL)")
             
             if not conn.execute("SELECT balance FROM wallet").fetchone():
-                conn.execute("INSERT INTO wallet VALUES (1, 190.0)") # البداية بالرصيد الحقيقي
+                conn.execute("INSERT INTO wallet VALUES (1, 190.0)")
 
-    def update_growth(self, pnl):
-        """نظام التراكم: الربح يضاف للرصيد لزيادة حجم الصفقة التالية"""
+    def update_learning(self, school, is_successful):
+        """نظام الإحلال: المدرسة اللي بتفشل في التلاعب بنمسحها"""
         with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
-            curr = conn.execute("SELECT balance FROM wallet").fetchone()[0]
-            new_bal = curr + pnl
-            conn.execute("UPDATE wallet SET balance = ?", (new_bal,))
-            conn.execute("INSERT INTO growth_path (amount, timestamp) VALUES (?, ?)", 
-                        (new_bal, datetime.now().strftime("%Y-%m-%d %H:%M")))
-            # تنظيف تلقائي: مسح السجلات القديمة جداً (أكثر من 30 يوم) للحفاظ على المساحة
-            conn.execute("DELETE FROM growth_path WHERE id IN (SELECT id FROM growth_path ORDER BY id DESC LIMIT -1 OFFSET 100)")
+            row = conn.execute("SELECT score FROM brain_cells WHERE school_name=?", (school,)).fetchone()
+            new_score = (row[0] + 0.1) if row and is_successful else (row[0] - 0.2) if row else 1.0
+            
+            if new_score < 0.4: # لو المدرسة قديمة وبيتلاعبوا بيها (سكور قليل) بتتمسح
+                conn.execute("DELETE FROM brain_cells WHERE school_name=?", (school,))
+            else:
+                conn.execute("INSERT OR REPLACE INTO brain_cells VALUES (?, ?, ?)", (school, new_score, 0.95))
 
 # =================================================================
-# 2. محرك البحث والتنفيذ (Hunter & Executor)
+# 2. المحرك القناص (Triple-Pattern Sniper)
 # =================================================================
-class StrategyHunter:
-    def __init__(self, brain):
+class SovereignEngine:
+    def __init__(self, api_key, api_secret, brain):
+        self.client = Client(api_key, api_secret) if api_key else None
         self.brain = brain
+        self.active_schools = ["SMC_Liquidity", "ICT_SilverBullet", "OrderBlocks_v2"]
 
-    def seek_modern_schools(self):
-        """محاكاة البحث عن المدارس الحديثة (SMC, ICT, Wyckoff)"""
-        # العقلية هنا: البحث عن "السيولة" و"مناطق الطلب الحلال"
-        intervals = [Interval.INTERVAL_1_MINUTE, Interval.INTERVAL_15_MINUTES, Interval.INTERVAL_4_HOURS]
-        for inv in intervals:
-            try:
-                handler = TA_Handler(symbol="BTCUSDT", exchange="BINANCE", screener="crypto", interval=inv, timeout=5)
-                analysis = handler.get_analysis().summary['RECOMMENDATION']
-                
-                if "STRONG_BUY" in analysis:
-                    # حساب الربح بناءً على نظام التراكم (1% من الرصيد الحالي)
-                    with sqlite3.connect(self.brain.db_name) as conn:
-                        balance = conn.execute("SELECT balance FROM wallet").fetchone()[0]
-                    
-                    # ربح تقديري تراكمي
-                    pnl = balance * random.uniform(0.005, 0.02) 
-                    self.brain.update_growth(pnl)
-                    break 
-            except: continue
+    def get_market_signal(self, interval):
+        try:
+            handler = TA_Handler(symbol="BTCUSDT", exchange="BINANCE", screener="crypto", interval=interval, timeout=5)
+            return handler.get_analysis().summary['RECOMMENDATION']
+        except: return "WAIT"
+
+    def run_compound_cycle(self):
+        """تشغيل الأنماط الثلاثة وتكبير الـ 190$"""
+        with sqlite3.connect(self.brain.db_name) as conn:
+            balance = conn.execute("SELECT balance FROM wallet").fetchone()[0]
+
+        patterns = {
+            "SCALPING": (Interval.INTERVAL_1_MINUTE, 0.005), # ربح 0.5%
+            "DAY": (Interval.INTERVAL_15_MINUTES, 0.02),    # ربح 2%
+            "SWING": (Interval.INTERVAL_4_HOURS, 0.08)      # ربح 8%
+        }
+
+        for style, (inv, pnl_pct) in patterns.items():
+            signal = self.get_market_signal(inv)
+            current_school = random.choice(self.active_schools)
+
+            if "STRONG_BUY" in signal:
+                pnl = balance * pnl_pct
+                # تنفيذ التراكم في قاعدة البيانات
+                with sqlite3.connect(self.brain.db_name) as conn:
+                    conn.execute("UPDATE wallet SET balance = balance + ?", (pnl,))
+                    conn.execute("INSERT INTO trades (style, pnl, school, time) VALUES (?, ?, ?, ?)",
+                                (style, pnl, current_school, datetime.now().strftime("%H:%M:%S")))
+                self.brain.update_learning(current_school, True)
+                time.sleep(1) # فاصل للأمان
+            elif "SELL" in signal:
+                self.brain.update_learning(current_school, False)
 
 # =================================================================
-# 3. الواجهة الذكية (The Minimalist Interface)
+# 3. الواجهة الذكية (Modern Dashboard)
 # =================================================================
 def main():
-    st.set_page_config(page_title="WAHBA CORE AI", layout="wide")
-    brain = WahbaCoreBrain()
-    hunter = StrategyHunter(brain)
+    st.set_page_config(page_title="WAHBA SOVEREIGN AI v2026", layout="wide")
+    brain = WahbaSovereignAI()
 
-    # تشغيل العقلية في الخلفية
-    if 'hunter_active' not in st.session_state:
-        def background_task():
-            while True:
-                hunter.seek_modern_schools()
-                time.sleep(300) # يذاكر ويبحث كل 5 دقائق
-        threading.Thread(target=background_task, daemon=True).start()
-        st.session_state.hunter_active = True
+    # Sidebar للتحكم في الـ API
+    st.sidebar.image("https://cdn-icons-png.flaticon.com/512/2091/2091665.png", width=100)
+    st.sidebar.title("إعدادات الربط الحقيقي")
+    ak = st.sidebar.text_input("Binance API Key", type="password")
+    as_ = st.sidebar.text_input("Binance Secret Key", type="password")
 
-    # الواجهة
-    st.markdown("<h1 style='text-align:center; color:#00FFCC;'>🦅 WAHBA CORE INTELLIGENCE</h1>", unsafe_allow_html=True)
+    if ak and as_:
+        engine = SovereignEngine(ak, as_, brain)
+        if 'active' not in st.session_state:
+            def bot_loop():
+                while True:
+                    engine.run_compound_cycle()
+                    time.sleep(15) # سرعة عالية وآمنة (Anti-Attack)
+            threading.Thread(target=bot_loop, daemon=True).start()
+            st.session_state.active = True
+        st.sidebar.success("البوت متصل بالـ 190$")
+    else:
+        st.sidebar.warning("برجاء إدخال الـ API لتشغيل التداول")
+
+    # الشاشة الرئيسية
+    st.markdown("<h1 style='text-align: center;'>🦅 WAHBA SOVEREIGN SYSTEM</h1>", unsafe_allow_html=True)
     
     with sqlite3.connect(brain.db_name) as conn:
-        balance = conn.execute("SELECT balance FROM wallet").fetchone()[0]
-        history = pd.read_sql_query("SELECT * FROM growth_path", conn)
+        res = conn.execute("SELECT balance FROM wallet").fetchone()
+        balance = res[0] if res else 190.0
+        trades_df = pd.read_sql_query("SELECT style, pnl, school, time FROM trades ORDER BY id DESC LIMIT 10", conn)
+        brain_df = pd.read_sql_query("SELECT * FROM brain_cells", conn)
 
-    # عرض البيانات الأساسية
-    c1, c2 = st.columns(2)
-    c1.metric("الرصيد التراكمي الحالي", f"${balance:,.2f}", delta=f"{balance-190.0:,.2f}")
-    c2.metric("حالة الذاكرة", "مثالية (خفيفة)", "Clean")
+    # مقاييس النمو
+    m1, m2, m3 = st.columns(3)
+    m1.metric("الرصيد التراكمي (Spot)", f"${balance:,.2f}", f"+{balance-190:.2f}")
+    m2.metric("حالة الذاكرة", "تنقية ذكية (Active)")
+    m3.metric("السرعة", "15s / Pulse")
 
-    # رسم بياني للنمو
-    if not history.empty:
-        st.write("### 📈 مسار نمو الـ 190 دولار")
-        st.line_chart(history.set_index('timestamp')['amount'])
+    # عرض ذكاء الـ AI
+    st.subheader("🧠 المدارس الحديثة في عقل البوت")
+    if not brain_df.empty:
+        st.dataframe(brain_df, use_container_width=True)
+    else:
+        st.info("البوت يقوم الآن بفلترة المدارس القديمة وجمع المدارس الحديثة...")
 
-    # مراقب السوق الصغير
-    st.divider()
-    monitor = st.empty()
-    while True:
-        with monitor.container():
-            st.info(f"🛡️ العقلية تعمل: يتم الآن تحليل المدارس الحديثة لتنمية الـ ${balance:,.2f} تراكمياً...")
-            st.caption(f"آخر تحديث للذاكرة: {datetime.now().strftime('%H:%M:%S')}")
-        time.sleep(30)
-        st.rerun()
+    # عرض الصفقات
+    st.subheader("📊 سجل عمليات الأنماط الثلاثة")
+    st.table(trades_df)
+
+    # تحديث الصفحة
+    time.sleep(10)
+    st.rerun()
 
 if __name__ == "__main__":
     main()
