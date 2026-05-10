@@ -1,7 +1,7 @@
 streamlit
 pandas
-numpy
-plotly
 tradingview-ta
 python-binance
+plotly
 requests
+numpy
