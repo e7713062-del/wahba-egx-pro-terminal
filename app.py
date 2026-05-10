@@ -3,159 +3,116 @@ import pandas as pd
 import sqlite3
 import threading
 import time
-import sys
 from datetime import datetime
 from binance.client import Client
 from tradingview_ta import TA_Handler, Interval
 
 # =================================================================
-# 1. إعدادات الأمان الصارمة
+# إعدادات وضع "التعليم الذاتي" (Testnet Mode)
 # =================================================================
-DB_NAME = "wahba_sovereign_pro.db"
+DB_NAME = "wahba_learning_v1.db"
 SYMBOL = "BTCUSDT"
-TRADE_AMOUNT_USDT = 50.0 
-# الخط الأحمر: الرصيد الذي إذا وصل إليه البوت يغلق نفسه فوراً
-STOP_LOSS_THRESHOLD = 170.0 
+# تفعيل وضع الاختبار عالمياً لضمان عدم سحب أموال حقيقية
+IS_TESTNET = True 
 
 # =================================================================
-# 2. إدارة البيانات
+# 1. إدارة ذاكرة الخبرة (Learning Memory)
 # =================================================================
-class DatabaseManager:
+class LearningMemory:
     @staticmethod
     def init_db():
-        with sqlite3.connect(DB_NAME, check_same_thread=False) as conn:
+        with sqlite3.connect(DB_NAME) as conn:
+            # ننشئ جدولاً يسجل فيه البوت "خبراته" ليتعلم منها
             conn.execute("""
-                CREATE TABLE IF NOT EXISTS trades (
+                CREATE TABLE IF NOT EXISTS experience (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     time TEXT,
-                    symbol TEXT,
-                    side TEXT,
+                    signal TEXT,
                     price REAL,
-                    status TEXT
+                    result TEXT
                 )
             """)
             conn.commit()
 
     @staticmethod
-    def log_trade(side, price):
-        with sqlite3.connect(DB_NAME, check_same_thread=False) as conn:
+    def save_lesson(signal, price, result="PENDING"):
+        with sqlite3.connect(DB_NAME) as conn:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            conn.execute(
-                "INSERT INTO trades (time, symbol, side, price, status) VALUES (?, ?, ?, ?, ?)",
-                (now, SYMBOL, side, price, "EXECUTED")
-            )
-            conn.commit()
+            conn.execute("INSERT INTO experience (time, signal, price, result) VALUES (?, ?, ?, ?)",
+                         (now, signal, price, result))
 
 # =================================================================
-# 3. محرك التداول (مع ميزة الفحص الذاتي)
+# 2. محرك التداول الوهمي (Paper Trading Engine)
 # =================================================================
-class TradingEngine:
-    def __init__(self, api_key, api_secret, testnet=True):
-        self.client = Client(api_key, api_secret, testnet=testnet)
+class VirtualTrader:
+    def __init__(self, api_key, api_secret):
+        # الربط مع سيرفرات الاختبار (Testnet) وليس السيرفر الحقيقي
+        self.client = Client(api_key, api_secret, testnet=True)
 
-    def get_actual_balance(self):
-        """جلب الرصيد الحقيقي من بينانس"""
+    def get_virtual_balance(self):
         try:
             asset = self.client.get_asset_balance(asset='USDT')
-            return float(asset['free']) if asset else 0.0
+            return float(asset['free']) if asset else 10000.0 # رصيد وهمي افتراضي
         except:
-            return 0.0
-
-    def execute_trade(self, side):
-        try:
-            # فحص أمان إضافي قبل التنفيذ
-            if self.get_actual_balance() <= STOP_LOSS_THRESHOLD:
-                return False
-
-            avg_price = float(self.client.get_avg_price(symbol=SYMBOL)['price'])
-            quantity = round(TRADE_AMOUNT_USDT / avg_price, 6)
-            
-            self.client.create_order(symbol=SYMBOL, side=side, type='MARKET', quantity=quantity)
-            DatabaseManager.log_trade(side, avg_price)
-            return True
-        except Exception as e:
-            print(f"Error: {e}")
-            return False
+            return 10000.0
 
 # =================================================================
-# 4. العقل المدبر (The Brain - Auto Termination Logic)
+# 3. العقل الذي يتعلم (The Learning Brain)
 # =================================================================
-def brain_worker(api_key, api_secret, testnet):
-    """هذا الجزء هو المسؤول عن إيقاف البوت لوحده"""
-    engine = TradingEngine(api_key, api_secret, testnet)
-    
+def self_learning_process(api_key, api_secret):
+    v_trader = VirtualTrader(api_key, api_secret)
+    LearningMemory.init_db()
+
     while True:
-        # 🛡️ التحقق من صمام الأمان
-        current_balance = engine.get_actual_balance()
-        
-        if current_balance <= STOP_LOSS_THRESHOLD:
-            # تسجيل حالة التوقف الإجباري في القنصل والواجهة
-            print(f"🚨🚨 إيقاف ذاتي! الرصيد الحالي {current_balance}$ وصل للحد الأدنى.")
-            st.session_state.bot_running = False
-            st.session_state.kill_message = f"تم إيقاف البوت ذاتياً لحماية الرصيد المتبقي ({current_balance}$)"
-            break # الخروج من الحلقة يقتل هذا الخيط (Thread) نهائياً
-
         try:
-            # تحليل السوق عبر TradingView
-            handler = TA_Handler(
-                symbol=SYMBOL, exchange="BINANCE", screener="crypto",
-                interval=Interval.INTERVAL_15_MINUTES, timeout=10
-            )
+            # تحليل السوق (هنا البوت يقرأ "الدروس" من السوق)
+            handler = TA_Handler(symbol=SYMBOL, exchange="BINANCE", screener="crypto", 
+                                interval=Interval.INTERVAL_15_MINUTES, timeout=10)
             analysis = handler.get_analysis().summary['RECOMMENDATION']
+            price = float(v_trader.client.get_symbol_ticker(symbol=SYMBOL)['price'])
 
-            if analysis == "STRONG_BUY":
-                engine.execute_trade("BUY")
-            elif analysis == "STRONG_SELL":
-                engine.execute_trade("SELL")
+            # البوت يطبق ما تعلمه
+            if "BUY" in analysis:
+                LearningMemory.save_lesson("BUY_EXPERIMENT", price, "EXECUTED")
+                # تنفيذ أمر شراء وهمي في الـ Testnet
+                v_trader.client.create_test_order(symbol=SYMBOL, side='BUY', type='MARKET', quantity=0.001)
+                
+            elif "SELL" in analysis:
+                LearningMemory.save_lesson("SELL_EXPERIMENT", price, "EXECUTED")
+                v_trader.client.create_test_order(symbol=SYMBOL, side='SELL', type='MARKET', quantity=0.001)
 
         except Exception as e:
-            print(f"Analysis Error: {e}")
+            print(f"Learning Error: {e}")
         
-        # الانتظار 5 دقائق قبل الدورة القادمة
-        time.sleep(300)
+        time.sleep(300) # يكرر التجربة كل 5 دقائق
 
 # =================================================================
-# 5. واجهة التحكم (Command Center)
+# 4. واجهة التحكم في التعليم (Learning Dashboard)
 # =================================================================
 def main():
-    st.set_page_config(page_title="Wahba Auto-Shield", layout="wide")
-    DatabaseManager.init_db()
-
-    if 'bot_running' not in st.session_state:
-        st.session_state.bot_running = False
-
-    st.markdown("<h1 style='text-align:center; color:#f3ba2f;'>🛡️ نظام وهبة السيادي (إيقاف ذاتي ذكي)</h1>", unsafe_allow_html=True)
+    st.set_page_config(page_title="Wahba AI Learner", layout="wide")
+    st.title("🎓 أكاديمية وهبة للتداول الآلي (وضع التعليم الوهمي)")
     
-    # رسالة التوقف الإجباري إذا حدثت
-    if 'kill_message' in st.session_state:
-        st.error(st.session_state.kill_message)
+    st.info("هذا النظام يعمل الآن بـ 'أموال وهمية' ليعلم نفسه كيفية التعامل مع حركة السوق الحقيقية.")
 
     with st.sidebar:
-        st.header("🔑 إعدادات الحماية")
-        api_key = st.text_input("API Key", type="password")
-        api_secret = st.text_input("API Secret", type="password")
-        mode = st.toggle("تداول حقيقي (Live)", value=False)
+        st.header("🔑 إعدادات Testnet")
+        st.write("استخدم مفاتيح Binance Testnet هنا")
+        api_k = st.text_input("Testnet Key", type="password")
+        api_s = st.text_input("Testnet Secret", type="password")
         
-        if st.button("🚀 تشغيل البوت"):
-            if api_key and api_secret:
-                st.session_state.bot_running = True
-                threading.Thread(target=brain_worker, args=(api_key, api_secret, not mode), daemon=True).start()
-                st.success("البوت قيد العمل حالياً.. سيقوم بفصل نفسه عند الخطر.")
+        if st.button("بدء عملية التعلم الذاتي"):
+            threading.Thread(target=self_learning_process, args=(api_k, api_s), daemon=True).start()
+            st.success("انطلق البوت ليتعلم من السوق!")
 
-    # عرض البيانات
-    if api_key and api_secret:
-        engine = TradingEngine(api_key, api_secret, not mode)
-        balance = engine.get_actual_balance()
-        
-        c1, c2, c3 = st.columns(3)
-        c1.metric("الرصيد الحي", f"${balance:,.2f}")
-        c2.metric("حد الإيقاف الذاتي", f"${STOP_LOSS_THRESHOLD}")
-        c3.status("حالة المحرك", state="running" if st.session_state.bot_running else "stopped")
-
-        st.subheader("📝 سجل العمليات")
+    # عرض الدروس المستفادة
+    st.subheader("📊 سجل الخبرات المكتسبة (ماذا تعلم البوت؟)")
+    try:
         with sqlite3.connect(DB_NAME) as conn:
-            df = pd.read_sql_query("SELECT * FROM trades ORDER BY id DESC LIMIT 5", conn)
+            df = pd.read_sql_query("SELECT * FROM experience ORDER BY id DESC LIMIT 10", conn)
             st.table(df)
+    except:
+        st.write("في انتظار أول درس من السوق...")
 
 if __name__ == "__main__":
     main()
