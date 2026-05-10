@@ -8,111 +8,127 @@ from binance.client import Client
 from tradingview_ta import TA_Handler, Interval
 
 # =================================================================
-# إعدادات وضع "التعليم الذاتي" (Testnet Mode)
+# الإعدادات الأساسية
 # =================================================================
-DB_NAME = "wahba_learning_v1.db"
+DB_NAME = "wahba_live_pnl.db"
 SYMBOL = "BTCUSDT"
-# تفعيل وضع الاختبار عالمياً لضمان عدم سحب أموال حقيقية
-IS_TESTNET = True 
+STOP_LOSS_LIMIT = 190.0 # صمام الأمان النهائي
 
 # =================================================================
-# 1. إدارة ذاكرة الخبرة (Learning Memory)
+# إدارة البيانات (الربح والخسارة الفعلي)
 # =================================================================
-class LearningMemory:
+class TradeAccountant:
     @staticmethod
     def init_db():
         with sqlite3.connect(DB_NAME) as conn:
-            # ننشئ جدولاً يسجل فيه البوت "خبراته" ليتعلم منها
+            # سجل الصفقات لحساب الأرباح والخسائر
             conn.execute("""
-                CREATE TABLE IF NOT EXISTS experience (
+                CREATE TABLE IF NOT EXISTS journal (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    time TEXT,
-                    signal TEXT,
-                    price REAL,
-                    result TEXT
+                    entry_time TEXT,
+                    entry_price REAL,
+                    exit_price REAL,
+                    pnl REAL,
+                    final_balance REAL
                 )
             """)
             conn.commit()
 
     @staticmethod
-    def save_lesson(signal, price, result="PENDING"):
+    def record_trade(entry_p, exit_p, pnl, current_bal):
         with sqlite3.connect(DB_NAME) as conn:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            conn.execute("INSERT INTO experience (time, signal, price, result) VALUES (?, ?, ?, ?)",
-                         (now, signal, price, result))
+            conn.execute("""
+                INSERT INTO journal (entry_time, entry_price, exit_price, pnl, final_balance)
+                VALUES (?, ?, ?, ?, ?)
+            """, (now, entry_p, exit_p, pnl, current_bal))
+            conn.commit()
 
 # =================================================================
-# 2. محرك التداول الوهمي (Paper Trading Engine)
+# العقل المدبر (المراقب المالي)
 # =================================================================
-class VirtualTrader:
-    def __init__(self, api_key, api_secret):
-        # الربط مع سيرفرات الاختبار (Testnet) وليس السيرفر الحقيقي
-        self.client = Client(api_key, api_secret, testnet=True)
-
-    def get_virtual_balance(self):
-        try:
-            asset = self.client.get_asset_balance(asset='USDT')
-            return float(asset['free']) if asset else 10000.0 # رصيد وهمي افتراضي
-        except:
-            return 10000.0
-
-# =================================================================
-# 3. العقل الذي يتعلم (The Learning Brain)
-# =================================================================
-def self_learning_process(api_key, api_secret):
-    v_trader = VirtualTrader(api_key, api_secret)
-    LearningMemory.init_db()
+def brain_worker(api_key, api_secret, testnet):
+    client = Client(api_key, api_secret, testnet=testnet)
+    TradeAccountant.init_db()
+    
+    # متغيرات لمتابعة الصفقة المفتوحة
+    in_position = False
+    entry_price = 0.0
 
     while True:
         try:
-            # تحليل السوق (هنا البوت يقرأ "الدروس" من السوق)
-            handler = TA_Handler(symbol=SYMBOL, exchange="BINANCE", screener="crypto", 
-                                interval=Interval.INTERVAL_15_MINUTES, timeout=10)
-            analysis = handler.get_analysis().summary['RECOMMENDATION']
-            price = float(v_trader.client.get_symbol_ticker(symbol=SYMBOL)['price'])
+            # 1. جلب الرصيد الحالي من المنصة
+            asset = client.get_asset_balance(asset='USDT')
+            current_balance = float(asset['free']) if asset else 0.0
 
-            # البوت يطبق ما تعلمه
-            if "BUY" in analysis:
-                LearningMemory.save_lesson("BUY_EXPERIMENT", price, "EXECUTED")
-                # تنفيذ أمر شراء وهمي في الـ Testnet
-                v_trader.client.create_test_order(symbol=SYMBOL, side='BUY', type='MARKET', quantity=0.001)
+            # 🛡️ شرط الأمان: لو الرصيد نزل لـ 190$، اقفل فوراً
+            if current_balance <= STOP_LOSS_LIMIT:
+                st.session_state.is_running = False
+                break
+
+            # 2. تحليل السوق (فريم 5 دقائق للنمو السريع)
+            handler = TA_Handler(symbol=SYMBOL, exchange="BINANCE", screener="crypto", 
+                                interval=Interval.INTERVAL_5_MINUTES, timeout=10)
+            analysis = handler.get_analysis().summary['RECOMMENDATION']
+            live_price = float(client.get_symbol_ticker(symbol=SYMBOL)['price'])
+
+            # 3. منطق التداول الحقيقي (شراء وبيع وحساب المكسب)
+            if not in_position and analysis == "STRONG_BUY":
+                # دخول صفقة شراء
+                client.create_order(symbol=SYMBOL, side='BUY', type='MARKET', quantity=0.001)
+                entry_price = live_price
+                in_position = True
+            
+            elif in_position and analysis == "STRONG_SELL":
+                # خروج من الصفقة (بيع)
+                client.create_order(symbol=SYMBOL, side='SELL', type='MARKET', quantity=0.001)
+                pnl = (live_price - entry_price) * 0.001 # حساب الربح أو الخسارة من هذه الصفقة
                 
-            elif "SELL" in analysis:
-                LearningMemory.save_lesson("SELL_EXPERIMENT", price, "EXECUTED")
-                v_trader.client.create_test_order(symbol=SYMBOL, side='SELL', type='MARKET', quantity=0.001)
+                # تسجيل النتيجة في "كشف الحساب"
+                TradeAccountant.record_trade(entry_price, live_price, pnl, current_balance + pnl)
+                in_position = False
 
         except Exception as e:
-            print(f"Learning Error: {e}")
+            print(f"Error: {e}")
         
-        time.sleep(300) # يكرر التجربة كل 5 دقائق
+        time.sleep(60) # تحديث كل دقيقة
 
 # =================================================================
-# 4. واجهة التحكم في التعليم (Learning Dashboard)
+# الواجهة (عداد الأرباح والخسائر اللحظي)
 # =================================================================
 def main():
-    st.set_page_config(page_title="Wahba AI Learner", layout="wide")
-    st.title("🎓 أكاديمية وهبة للتداول الآلي (وضع التعليم الوهمي)")
-    
-    st.info("هذا النظام يعمل الآن بـ 'أموال وهمية' ليعلم نفسه كيفية التعامل مع حركة السوق الحقيقية.")
+    st.set_page_config(page_title="Wahba Live PnL", layout="wide")
+    st.title("💸 مراقب الأرباح والخسائر اللحظي")
 
     with st.sidebar:
-        st.header("🔑 إعدادات Testnet")
-        st.write("استخدم مفاتيح Binance Testnet هنا")
-        api_k = st.text_input("Testnet Key", type="password")
-        api_s = st.text_input("Testnet Secret", type="password")
-        
-        if st.button("بدء عملية التعلم الذاتي"):
-            threading.Thread(target=self_learning_process, args=(api_k, api_s), daemon=True).start()
-            st.success("انطلق البوت ليتعلم من السوق!")
+        ak = st.text_input("Binance API Key", type="password")
+        as_key = st.text_input("Binance Secret Key", type="password")
+        is_test = st.checkbox("وضع الاختبار (أموال وهمية)", value=True)
+        if st.button("🚀 تشغيل المحرك"):
+            threading.Thread(target=brain_worker, args=(ak, as_key, is_test), daemon=True).start()
+            st.success("المحرك يعمل ويراقب المحفظة!")
 
-    # عرض الدروس المستفادة
-    st.subheader("📊 سجل الخبرات المكتسبة (ماذا تعلم البوت؟)")
-    try:
+    if ak and as_key:
+        # عرض الرصيد والنمو
         with sqlite3.connect(DB_NAME) as conn:
-            df = pd.read_sql_query("SELECT * FROM experience ORDER BY id DESC LIMIT 10", conn)
-            st.table(df)
-    except:
-        st.write("في انتظار أول درس من السوق...")
+            df = pd.read_sql_query("SELECT * FROM journal ORDER BY id DESC", conn)
+            
+            if not df.empty:
+                last_bal = df.iloc[0]['final_balance']
+                total_pnl = df['pnl'].sum()
+                
+                # عداد كبير يوضح "بتكثر ولا بتنزل"
+                c1, c2 = st.columns(2)
+                c1.metric("الرصيد الحالي", f"${last_bal:,.2f}", delta=f"{total_pnl:,.2f}")
+                c2.metric("حالة الأمان", "آمن" if last_bal > STOP_LOSS_LIMIT else "خطر")
+
+                st.subheader("📈 مسار نمو الصفقات")
+                st.line_chart(df.set_index('entry_time')['final_balance'])
+                
+                st.subheader("📝 كشف حساب الصفقات")
+                st.table(df[['entry_time', 'pnl', 'final_balance']].head(10))
+            else:
+                st.info("في انتظار تنفيذ أول صفقة لحساب النتائج...")
 
 if __name__ == "__main__":
     main()
