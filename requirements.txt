@@ -1,4 +1,5 @@
 streamlit
 google-generativeai
-tradingview-ta
 pandas
+tradingview-ta
+python-binance
