@@ -1,7 +1,4 @@
 streamlit
+google-generativeai
 pandas
-tradingview-ta
-python-binance
-plotly
-requests
-numpy
+tradingview_ta
