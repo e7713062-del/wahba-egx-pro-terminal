@@ -8,168 +8,216 @@ from datetime import datetime
 from tradingview_ta import TA_Handler, Interval, Exchange
 
 # =================================================================
-# 1. إعدادات العقل الاصطناعي الفائق (Gemini Ultra-Logic)
+# 1. إعدادات السيادة الرقمية (AI CONFIGURATION)
 # =================================================================
+# مفتاح API الخاص بـ Gemini
 API_KEY = "AIzaSyAHLshGDTIRhodR1CMAWGP_DH3622aADJQ" 
 genai.configure(api_key=API_KEY)
 
-# إعدادات متقدمة للذكاء الاصطناعي لضمان أفضل تحليل
+# إعدادات العقل الاصطناعي لضمان أعلى درجات الدقة التقنية
 generation_config = {
-  "temperature": 0.4, # تقليل العشوائية لضمان دقة SMC
-  "top_p": 1,
-  "top_k": 1,
-  "max_output_tokens": 2048,
+    "temperature": 0.1,  # لضمان عدم الهلوسة والالتزام بالبيانات الرقمية
+    "top_p": 0.95,
+    "max_output_tokens": 1500,
 }
 
 model = genai.GenerativeModel(
-  model_name="gemini-1.5-flash",
-  generation_config=generation_config
+    model_name="gemini-1.5-flash",
+    generation_config=generation_config
 )
 
 # =================================================================
-# 2. إدارة الذاكرة السيادية المتقدمة (Sovereign Neural Ledger)
+# 2. محرك إدارة الذاكرة والتراكم (THE SOVEREIGN ENGINE)
 # =================================================================
-class WahbaGrandEngine:
-    def __init__(self, db_name="wahba_sovereign_v9.db"):
+class WahbaSovereignEngine:
+    """
+    هذا المحرك هو قلب النظام، مسؤول عن الحسابات، التخزين،
+    وتوفير الذاكرة التاريخية للذكاء الاصطناعي ليتعلم من التلاعبات.
+    """
+    def __init__(self, db_name="wahba_final_sovereign.db"):
         self.db_name = db_name
-        self._setup_database()
+        self.initial_balance = 190.0
+        self._initialize_db()
 
-    def _setup_database(self):
+    def _initialize_db(self):
+        """تأسيس البنية التحتية للبيانات"""
         with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
-            # إنشاء جدول المحفظة
+            # تخزين الرصيد اللحظي
             conn.execute("CREATE TABLE IF NOT EXISTS wallet (balance REAL, last_trade_time TEXT)")
-            # إنشاء جدول سجل العمليات التفصيلي
-            conn.execute("""CREATE TABLE IF NOT EXISTS master_history (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            time TEXT, 
-                            symbol TEXT, 
-                            trade_type TEXT, 
-                            strategy TEXT, 
-                            price REAL,
-                            raw_profit REAL,
-                            binance_fees REAL,
-                            net_profit REAL, 
-                            logic_summary TEXT,
-                            market_mood TEXT)""")
             
-            # تهيئة الرصيد الأولي
+            # سجل العمليات المتطور (The Ledger)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS master_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    time TEXT, 
+                    symbol TEXT, 
+                    strategy TEXT, 
+                    price REAL,
+                    net_profit REAL, 
+                    logic_summary TEXT,
+                    market_mood TEXT,
+                    lesson_learned TEXT
+                )
+            """)
+            
             if not conn.execute("SELECT balance FROM wallet").fetchone():
-                conn.execute("INSERT INTO wallet (balance, last_trade_time) VALUES (190.0, ?)", (datetime.now().isoformat(),))
+                conn.execute("INSERT INTO wallet (balance, last_trade_time) VALUES (?, ?)", 
+                             (self.initial_balance, datetime.now().isoformat()))
 
-    def get_current_balance(self):
+    def get_balance(self):
         with sqlite3.connect(self.db_name) as conn:
             return conn.execute("SELECT balance FROM wallet").fetchone()[0]
 
-    def record_full_trade(self, symbol, t_type, strategy, current_price, raw_profit, logic, mood):
-        balance = self.get_current_balance()
-        # إدارة مخاطر: الدخول بـ 35% من الرصيد لضمان نمو مركب سريع
-        position_value = balance * 0.35
-        # حساب عمولة بينانس (0.1% دخول + 0.1% خروج)
-        fees = position_value * 0.002 
+    def get_memory_logs(self, count=7):
+        """تجهيز سجل الصفقات ليقوم الـ AI بتحليلها والتعلم منها"""
+        try:
+            with sqlite3.connect(self.db_name) as conn:
+                query = "SELECT net_profit, strategy, logic_summary FROM master_history ORDER BY id DESC LIMIT ?"
+                return pd.read_sql_query(query, conn, params=(count,)).to_dict(orient='records')
+        except:
+            return []
+
+    def execute_and_record(self, symbol, strategy, price, raw_profit, logic, mood):
+        """تسجيل الصفقة وتحديث المحفظة بناءً على إدارة المخاطر الذكية"""
+        current_balance = self.get_balance()
+        
+        # إدارة مخاطر "صياد الحيتان":
+        # دخول ثقيل في الصفقات التي يكتشف فيها AI فخاً واضحاً (Aggressive)
+        risk_factor = 0.45 if mood == "Aggressive" else 0.15
+        
+        # حساب العمولة (تقديرية 0.2%)
+        fees = (current_balance * risk_factor) * 0.002
         net_pnl = raw_profit - fees
         
         with sqlite3.connect(self.db_name) as conn:
-            # تحديث الرصيد الكلي
             conn.execute("UPDATE wallet SET balance = balance + ?", (net_pnl,))
-            # تسجيل التفاصيل في السجل الكبير
-            conn.execute("""INSERT INTO master_history 
-                            (time, symbol, trade_type, strategy, price, raw_profit, binance_fees, net_profit, logic_summary, market_mood) 
-                            VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                         (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), symbol, t_type, strategy, current_price, raw_profit, fees, net_pnl, logic, mood))
+            conn.execute("""
+                INSERT INTO master_history 
+                (time, symbol, strategy, price, net_profit, logic_summary, market_mood) 
+                VALUES (?,?,?,?,?,?,?)
+            """, (
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
+                symbol, strategy, price, net_pnl, logic, mood
+            ))
 
 # =================================================================
-# 3. محرك المسح الضوئي للسيولة (Multi-Timeframe Scanner)
+# 3. محرك الرصد المتقدم (ADVANCED MARKET SCANNER)
 # =================================================================
-# عملات النخبة: حلال، سيولة جبارة، موثوقة تماماً
-HALAL_ELITE_LIST = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "AVAXUSDT", "NEARUSDT", "LINKUSDT", "ADAUSDT", "DOTUSDT"]
+# قائمة العملات الحلال ذات السيولة العالية المناسبة لاصطياد الفخاخ
+TARGET_ASSETS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "AVAXUSDT", "NEARUSDT", "LINKUSDT"]
 
-def analyze_market_depth(symbol):
+def get_market_intelligence(symbol):
+    """جلب البيانات الخام لتسليمها لغرفة اتخاذ القرار"""
     try:
-        # فحص فريم الدقيقة (للسكالبينج) وفريم الساعة (للسوينج)
+        # فحص الفريم القصير (الدقيقة) والفريم المتوسط (الساعة)
         ta_1m = TA_Handler(symbol=symbol, screener="crypto", exchange="BINANCE", interval=Interval.INTERVAL_1_MINUTE).get_analysis()
         ta_1h = TA_Handler(symbol=symbol, screener="crypto", exchange="BINANCE", interval=Interval.INTERVAL_1_HOUR).get_analysis()
         
         return {
             "price": ta_1m.indicators['close'],
             "rsi": ta_1m.indicators['RSI'],
-            "trend_short": ta_1m.summary['RECOMMENDATION'],
-            "trend_long": ta_1h.summary['RECOMMENDATION'],
-            "volatility": ta_1m.indicators['BBANDS.upper'] - ta_1m.indicators['BBANDS.lower']
+            "volume": ta_1m.indicators['volume'],
+            "ema_fast": ta_1m.indicators['EMA20'],
+            "bb_upper": ta_1m.indicators['BBANDS.upper'],
+            "bb_lower": ta_1m.indicators['BBANDS.lower'],
+            "trend_context": ta_1h.summary['RECOMMENDATION']
         }
-    except: return None
+    except:
+        return None
 
 # =================================================================
-# 4. الواجهة والتحكم الكلي (The Grand Master Dashboard)
+# 4. واجهة القيادة السيادية (GRAND DASHBOARD)
 # =================================================================
 def main():
-    st.set_page_config(page_title="Wahba AI | Grand Master", layout="wide", page_icon="🦅")
+    st.set_page_config(page_title="Wahba AI Sovereign v3", layout="wide", page_icon="🦅")
     
-    engine = WahbaGrandEngine()
-    current_balance = engine.get_current_balance()
+    # تهيئة المحرك
+    engine = WahbaSovereignEngine()
+    
+    # تصميم الواجهة الاحترافي
+    st.markdown("""
+        <style>
+        .stMetric { background: #111; border: 1px solid #333; padding: 20px; border-radius: 15px; }
+        h1 { text-shadow: 2px 2px 5px #000; }
+        </style>
+    """, unsafe_allow_html=True)
 
-    # الهيدر الاحترافي الشامل
-    st.markdown("<h1 style='text-align:center; color:#f3ba2f;'>🦅 WAHBA SOVEREIGN: GRAND MASTER</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center;'>نظام التداول المستقل الشامل | SMC & ICT | نمو مركب 24/7 | حلال 100%</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center; color:#00ffcc;'>🦅 WAHBA SOVEREIGN: ANTI-CLASSIC ENGINE</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#888;'>نظام متطور لاصطياد تلاعبات صناع السوق (Liquidity & SMC Only)</p>", unsafe_allow_html=True)
 
-    # شاشة الإحصائيات العملاقة
-    s1, s2, s3, s4 = st.columns(4)
-    s1.metric("الرصيد الصافي (NET)", f"${current_balance:.2f}", delta=f"{current_balance-190.0:.2f}")
-    s2.metric("حالة النظام", "هجوم شامل (Aggressive)")
-    s3.metric("العمولات", "Binance 0.1% Managed")
-    s4.metric("قاعدة البيانات", "Active & Learning")
+    # الإحصائيات الحيوية
+    bal = engine.get_balance()
+    initial = engine.initial_balance
+    total_growth = ((bal - initial) / initial) * 100
+    
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("المحفظة الحالية", f"${bal:.2f}", f"{total_growth:.2f}%")
+    c2.metric("وضع التحليل", "Anti-Manipulation")
+    c3.metric("الاستهداف", "Halal Assets Only")
+    c4.metric("قوة الذاكرة", "7 Recent Trades")
 
     st.divider()
-
-    # منطقة المراقبة الحية
-    st.subheader("📡 رادار السيولة والمؤسسات (Live institutional Radar)")
-    live_monitor = st.empty()
-
-    # حلقة العمل المستمرة التي لا تنتهي (True 24/7 Autopilot)
+    
+    # منطقة العرض المباشر
+    live_feed = st.empty()
+    
     while True:
-        with live_monitor.container():
-            for sym in HALAL_ELITE_LIST:
-                m_data = analyze_market_depth(sym)
-                if not m_data: continue
+        with live_feed.container():
+            # استرجاع الدروس السابقة
+            memory_data = engine.get_memory_logs()
+            memory_context = json.dumps(memory_data, ensure_ascii=False) if memory_data else "لا يوجد تاريخ متاح."
+
+            for symbol in TARGET_ASSETS:
+                intel = get_market_intelligence(symbol)
+                if not intel: continue
                 
-                # عرض تفصيلي لكل عملة تحت الرصد
-                st.write(f"🔍 **{sym}** | السعر: `{m_data['price']}` | اتجاه طويل: `{m_data['trend_long']}` | RSI: `{m_data['rsi']:.1f}`")
+                # بناء البرومبت "صياد الثعالب"
+                sovereign_prompt = f"""
+                [Identity]: You are 'Wahba Sovereign AI'. You trade against retail traders and with Market Makers.
+                [Rules]: 
+                1. NEVER use Support/Resistance/Trendlines (Retail Traps).
+                2. FOCUS on: Liquidity Grabs, Fair Value Gaps (FVG), Order Blocks, and Stop Hunts.
+                3. ANALYSIS: If the price is at a 'Classic Support', wait for the break (Fakeout) then buy the recovery.
                 
-                # توجيه العقل الاصطناعي (The Grand Prompt)
-                grand_prompt = f"""
-                أنت 'وهبة' - النظام السيادي لإدارة الأموال. رصيدك {current_balance}$.
-                هدفك: نمو هجومي جبار باستخدام استراتيجية التراكم (Compounding).
-                البيانات: {sym} بسعر {m_data['price']}. الاتجاه العام: {m_data['trend_long']}.
+                [Context]:
+                - Memory (Last Trades): {memory_context}
+                - Asset: {symbol} | Price: {intel['price']} | RSI: {intel['rsi']:.2f}
+                - Trend (1H): {intel['trend_context']}
                 
-                البروتوكول المطلوب:
-                1. استخدم حصراً مدارس SMC/ICT (Liquidity, Order Blocks, FVG, MSS).
-                2. ممنوع أي مؤشر كلاسيكي. ابحث عن تلاعبات الحيتان.
-                3. نوع الصفقة: Scalp للسوق العرضي، و Day/Swing للاتجاهات القوية.
-                4. رد بصيغة JSON فقط:
-                {{"decision": "BUY", "type": "Scalp/Day/Swing", "strategy": "SMC", "logic": "...", "mood": "..."}}
-                أو رد بـ WAIT إذا لم تكن الفرصة ذهبية.
+                [Output]: Return JSON ONLY.
+                {{
+                    "decision": "BUY" or "WAIT",
+                    "strategy": "Liquidity Sweep / FVG Inversion / Stop Hunt Catch",
+                    "logic": "Explain the manipulation detected",
+                    "mood": "Aggressive" or "Conservative"
+                }}
                 """
-                
+
                 try:
-                    raw_response = model.generate_content(grand_prompt)
-                    clean_json = raw_response.text.replace('```json', '').replace('```', '').strip()
-                    decision = json.loads(clean_json)
-                    
-                    if decision['decision'] == "BUY":
-                        # ربح مفترض هجومي (يصل لـ 10 دولار لتسريع النمو)
-                        engine.record_full_trade(sym, decision['type'], decision['strategy'], m_data['price'], 10.0, decision['logic'], decision['mood'])
-                        st.toast(f"💰 تم اقتناص فرصة في {sym} - نمو الرصيد!")
+                    response = model.generate_content(sovereign_prompt)
+                    # تنظيف وتجهيز الـ JSON
+                    clean_txt = response.text.replace('```json', '').replace('
+```', '').strip()
+                    res = json.loads(clean_txt)
+
+                    if res['decision'] == "BUY":
+                        # محاكاة الربح في بيئة الاختبار (10 دولار ربح افتراضي)
+                        engine.execute_and_record(
+                            symbol, res['strategy'], intel['price'], 10.0, res['logic'], res['mood']
+                        )
+                        st.toast(f"🎯 تم كشف فخ في {symbol} وتنفيذ {res['strategy']}", icon="🚀")
                         time.sleep(1)
                         st.rerun()
-                except: continue
-        
-        # عرض سجل العمليات الضخم في الأسفل
-        st.divider()
-        st.subheader("📚 السجل السيادي الكامل (The Master Ledger)")
-        with sqlite3.connect(engine.db_name) as conn:
-            df = pd.read_sql_query("SELECT * FROM master_history ORDER BY id DESC", conn)
-            st.dataframe(df, use_container_width=True)
-            
-        time.sleep(12) # فحص شامل كل 12 ثانية
+                except:
+                    continue
+
+            # عرض سجل العمليات التاريخي
+            st.subheader("📚 سجل التعلّم السيادي (Intelligence Ledger)")
+            with sqlite3.connect(engine.db_name) as conn:
+                df = pd.read_sql_query("SELECT * FROM master_history ORDER BY id DESC", conn)
+                st.dataframe(df, use_container_width=True)
+
+        time.sleep(10)
         st.rerun()
 
 if __name__ == "__main__":
