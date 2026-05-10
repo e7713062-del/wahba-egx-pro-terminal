@@ -126,3 +126,30 @@ def main():
 
 if __name__ == "__main__":
     main()
+# --- جزء الربط المباشر بـ Binance (نسخة وهبة 2026) ---
+
+API_KEY = "uOGPGtw8G18nxQIHKCWTn3TGfa1XoPzKbXUINnQmEZfNWGy9PabxbRXIJYKZ2w7n"
+SECRET_KEY = "SFO6EXE1JGF7pfbPa1QKWbiAhU2tta0Bxsu1VDwytWyBnGbU1ji57ZRfEHn1MAxI"
+
+# إعداد الـ Exchange ليقرأ محفظة السبوت (التي بها الـ 193 USDT)
+import ccxt
+exchange = ccxt.binance({
+    'apiKey': API_KEY,
+    'secret': SECRET_KEY,
+    'enableRateLimit': True,
+    'options': {'defaultType': 'spot'} 
+})
+
+# دالة فحص الرصيد (تأكد أن الكود الأساسي يناديها)
+def check_my_balance():
+    try:
+        balance = exchange.fetch_balance()
+        total_usdt = balance['total'].get('USDT', 0)
+        print(f"💰 تم الربط! رصيدك الحالي في السبوت: {total_usdt} USDT")
+        return total_usdt
+    except Exception as e:
+        print(f"❌ فشل الربط: {e}")
+        return 0
+
+# استدعاء الفحص عند التشغيل
+current_balance = check_my_balance()
