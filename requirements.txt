@@ -1,5 +1,5 @@
 streamlit
-tradingview-ta
-python-binance
 pandas
-scikit-learn
+ccxt
+google-generativeai
+sqlite3
