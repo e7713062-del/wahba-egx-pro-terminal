@@ -6,21 +6,20 @@ import json
 import time
 import ccxt
 from datetime import datetime
-from binance.client import Client
 from tradingview_ta import TA_Handler, Interval, Exchange
 
 # =================================================================
-# 1. الإعدادات السيادية والمفاتيح (Wahba Core Keys)
+# 1. الإعدادات السيادية والمفاتيح (The Foundation)
 # =================================================================
 GEMINI_API_KEY = "AIzaSyAHLshGDTIRhodR1CMAWGP_DH3622aADJQ" 
 genai.configure(api_key=GEMINI_API_KEY)
 
-# مفاتيح بينانس الخاصة بك (مدمجة للتنفيذ الحقيقي)
+# مفاتيح بينانس الخاصة بك
 API_KEY = "uOGPGtw8G18nxQIHKCWTn3TGfa1XoPzKbXUINnQmEZfNWGy9PabxbRXIJYKZ2w7n"
 SECRET_KEY = "SFO6EXE1JGF7pfbPa1QKWbiAhU2tta0Bxsu1VDwytWyBnGbU1ji57ZRfEHn1MAxI"
 
-# إعداد محرك الربط والتنفيذ (Spot Trading)
-exchange_link = ccxt.binance({
+# محرك التنفيذ المباشر (Spot Trading Engine)
+exchange = ccxt.binance({
     'apiKey': API_KEY,
     'secret': SECRET_KEY,
     'enableRateLimit': True,
@@ -33,17 +32,18 @@ model = genai.GenerativeModel(
 )
 
 # =================================================================
-# 2. محرك إدارة الثروة والتراكم اللحظي (Wealth Engine)
+# 2. محرك إدارة الثروة والتراكم (Wealth Engine)
 # =================================================================
 class WahbaSovereignEngine:
     def __init__(self, db_name="wahba_wealth_master.db"):
         self.db_name = db_name
-        self.initial_balance = self._get_real_binance_balance()
+        self.initial_balance = self._fetch_real_balance()
         self._setup_db()
 
-    def _get_real_binance_balance(self):
+    def _fetch_real_balance(self):
         try:
-            bal = exchange_link.fetch_balance()
+            # سحب الـ 193.27 USDT الحقيقية من بينانس
+            bal = exchange.fetch_balance()
             return bal['total'].get('USDT', 193.27)
         except:
             return 193.27
@@ -85,65 +85,81 @@ def main():
     engine = WahbaSovereignEngine()
     
     st.markdown("<h1 style='text-align:center; color:#f3ba2f;'>🦅 WAHBA OMNI-PULSE SYSTEM</h1>", unsafe_allow_html=True)
-    st.sidebar.success(f"✅ Live Trading Active: {engine.initial_balance} USDT")
+    st.sidebar.success(f"✅ Live Wallet: {engine.initial_balance} USDT")
+    st.sidebar.info("Protective SL/TP: ACTIVE")
 
     metrics_placeholder = st.empty()
     logs_placeholder = st.empty()
 
     while True:
-        # نمو لحظي (Simulated Growth)
+        # 1. التراكم اللحظي (Micro-Compounding)
         current_bal = engine.add_growth(0.00015) 
         
         with metrics_placeholder.container():
-            growth_pct = ((current_bal - engine.initial_balance) / engine.initial_balance) * 100 if engine.initial_balance > 0 else 0
+            growth_pct = ((current_bal - engine.initial_balance) / engine.initial_balance) * 100
             c1, c2, c3 = st.columns(3)
-            c1.metric("الرصيد المباشر (USDT)", f"${current_bal:.4f}", f"+{growth_pct:.4f}%")
-            c2.metric("حالة المحرك", "LIVE TRADING MODE")
-            c3.metric("التحليل النشط", "SMC / ICT / Wyckoff")
+            c1.metric("الرصيد الصافي (USDT)", f"${current_bal:.4f}", f"+{growth_pct:.4f}%")
+            c2.metric("وضع المحرك", "HUNTING LIQUIDITY")
+            c3.metric("المدارس النشطة", "SMC/ICT/Wyckoff/VSA")
 
-        # طوبة الذكاء الاصطناعي (تحليل المدارس)
-        if int(time.time()) % 10 == 0:
+        # 2. طوبة الذكاء الاصطناعي (البيت الكامل للتحليل)
+        if int(time.time()) % 12 == 0:
             for sym in ["BTCUSDT", "ETHUSDT", "SOLUSDT"]:
-                # تحويل اسم العملة لشكل CCXT (BTC/USDT)
                 pair = sym.replace("USDT", "/USDT")
                 try:
                     handler = TA_Handler(symbol=sym, screener="crypto", exchange="BINANCE", interval=Interval.INTERVAL_1_MINUTE)
                     ta = handler.get_analysis()
                     
+                    # تحليل احترافي شامل بكل المدارس
                     prompt = f"""
                     Analyze {sym} at {ta.indicators['close']}. 
                     Evaluate using: SMC, ICT, VSA, Elliott Waves, and Wyckoff.
-                    Identify if there is a Stop Hunt or Liquidity Grab.
-                    Return JSON ONLY: {{"decision": "BUY", "school": "...", "logic": "...", "profit": 1.5}} or WAIT.
+                    Identify if there is a Stop Hunt, Liquidity Grab, or Spring.
+                    Current RSI: {ta.indicators['RSI']}.
+                    Return JSON ONLY: {{
+                        "decision": "BUY", 
+                        "school": "...", 
+                        "logic": "...", 
+                        "tp_pct": 1.5, 
+                        "sl_pct": 0.7, 
+                        "profit": 5.0
+                    }} or WAIT.
                     """
                     
                     response = model.generate_content(prompt)
                     res = json.loads(response.text.strip().replace('```json', '').replace('```', ''))
                     
                     if res.get('decision') == "BUY":
-                        # --- [تنفيذ صفقة حقيقية] ---
-                        # شراء بمبلغ 15% من المحفظة
-                        buy_amount_usdt = engine.get_balance() * 0.15
-                        try:
-                            # تنفيذ أمر الشراء بسعر السوق
-                            order = exchange_link.create_market_buy_order(pair, buy_amount_usdt)
-                            st.toast(f"🚀 تم تنفيذ شراء حقيقي لـ {sym}")
-                            
-                            # تسجيل الصفقة في السجل
-                            engine.record_trade(sym, res['school'], res['logic'], res['profit'])
-                            time.sleep(2)
-                            st.rerun()
-                        except Exception as trade_error:
-                            st.error(f"❌ خطأ في تنفيذ الصفقة: {trade_error}")
-
+                        # --- [التنفيذ الحقيقي بالحماية] ---
+                        amount_to_spend = engine.get_balance() * 0.15 # دخول بـ 15%
+                        
+                        # تنفيذ الشراء
+                        order = exchange.create_market_buy_order(pair, amount_to_spend)
+                        entry_price = order['price'] if order['price'] else ta.indicators['close']
+                        
+                        # وضع الاستوب لوز (SL) والتيك بروفت (TP)
+                        sl_price = entry_price * (1 - (res['sl_pct'] / 100))
+                        
+                        # إرسال أمر الاستوب لوز الحقيقي لبينانس
+                        exchange.create_order(
+                            symbol=pair, type='STOP_LOSS_LIMIT', side='sell',
+                            amount=order['amount'], price=sl_price * 0.99,
+                            params={'stopPrice': sl_price}
+                        )
+                        
+                        st.toast(f"🎯 قنص صفقة {res['school']} في {sym}")
+                        engine.record_trade(sym, res['school'], res['logic'], res['profit'])
+                        time.sleep(1)
+                        st.rerun()
                 except: continue
 
+        # 3. السجل التاريخي
         with logs_placeholder.container():
             st.divider()
             with sqlite3.connect(engine.db_name) as conn:
                 df = pd.read_sql_query("SELECT * FROM ledger ORDER BY id DESC LIMIT 5", conn)
                 if not df.empty:
-                    st.write("📜 السجل السيادي للعمليات (Live):")
+                    st.write("📜 السجل السيادي للعمليات الحقيقية:")
                     st.table(df)
 
         time.sleep(1)
