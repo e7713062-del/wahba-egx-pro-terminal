@@ -1,9 +1,3 @@
-# =================================================================
-# PROJECT: WAHBA SOVEREIGN AI (V1.0 - HALAL SPOT EDITION)
-# DEVELOPER: MUSTAFA TAMER & GEMINI
-# PURPOSE: AUTONOMOUS SMART MONEY TRADING
-# =================================================================
-
 import streamlit as st
 import pandas as pd
 import sqlite3
@@ -12,217 +6,180 @@ import ccxt
 import time
 from datetime import datetime
 
-# -----------------------------------------------------------------
-# 1. الإعدادات المركزية (Global Configuration)
-# -----------------------------------------------------------------
-# هنا نضع الثوابت لسهولة التحكم دون تعديل منطق الكود
+# =================================================================
+# 1. المركز الرئيسي للإعدادات (Sovereign Configuration)
+# =================================================================
 CONFIG = {
     "API": {
         "GEMINI_KEY": "YOUR_GEMINI_API_KEY",
-        "BINANCE_KEY": "YOUR_API_KEY",
-        "BINANCE_SECRET": "YOUR_SECRET_KEY"
+        "BINANCE_KEY": "YOUR_TESTNET_API_KEY",
+        "BINANCE_SECRET": "YOUR_TESTNET_SECRET_KEY"
     },
     "TRADING": {
         "SYMBOLS": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
         "TIMEFRAME": "15m",
-        "RETAIL_LOOKBACK": 20, # عدد الشموع لتحديد مناطق السيولة
-        "RISK_PERCENT": 0.1,    # الدخول بـ 10% من الرصيد المتوفر
-        "MODE": "spot"          # تداول فوري حلال
+        "RISK_PERCENT": 0.1,  # الدخول بـ 10% من الرصيد المتوفر
+        "LOOKBACK": 20
     },
-    "DB_NAME": "wahba_sovereign_v1.db"
+    "DB_NAME": "wahba_final_system.db"
 }
 
-# -----------------------------------------------------------------
-# 2. محرك قاعدة البيانات (Database Management)
-# -----------------------------------------------------------------
+# =================================================================
+# 2. مدير قاعدة البيانات (The Historian)
+# =================================================================
 class DatabaseManager:
-    """مسؤول عن حفظ تاريخ التداول والتعلم الآلي"""
     def __init__(self, db_path):
         self.db_path = db_path
-        self._initialize_db()
+        self._setup()
 
-    def _initialize_db(self):
+    def _setup(self):
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
-                CREATE TABLE IF NOT EXISTS trade_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    symbol TEXT,
-                    side TEXT,
-                    price REAL,
-                    ai_decision TEXT,
-                    timestamp TEXT
-                )
+                CREATE TABLE IF NOT EXISTS trade_logs 
+                (id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT, side TEXT, price REAL, decision TEXT, time TEXT)
             """)
 
-    def log_trade(self, symbol, side, price, ai_decision):
+    def save_log(self, symbol, side, price, decision):
         with sqlite3.connect(self.db_path) as conn:
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            conn.execute(
-                "INSERT INTO trade_history (symbol, side, price, ai_decision, timestamp) VALUES (?,?,?,?,?)",
-                (symbol, side, price, ai_decision, now)
-            )
+            now = datetime.now().strftime("%H:%M:%S")
+            conn.execute("INSERT INTO trade_logs (symbol, side, price, decision, time) VALUES (?,?,?,?,?)",
+                         (symbol, side, price, decision, now))
 
-    def get_recent_trades(self, limit=10):
+    def get_logs(self):
         with sqlite3.connect(self.db_path) as conn:
-            return pd.read_sql(f"SELECT * FROM trade_history ORDER BY id DESC LIMIT {limit}", conn)
+            return pd.read_sql("SELECT * FROM trade_history ORDER BY id DESC LIMIT 10", conn)
 
-# -----------------------------------------------------------------
-# 3. العقل المدبر (AI & Strategy Engine)
-# -----------------------------------------------------------------
-class SovereignBrain:
-    """المسؤول عن التحليل الفني واستشارة Gemini"""
-    def __init__(self, gemini_key):
-        genai.configure(api_key=gemini_key)
+# =================================================================
+# 3. محرك التداول الذكي (The Intelligence Engine)
+# =================================================================
+class WahbaSovereign:
+    def __init__(self):
+        # تهيئة الذكاء الاصطناعي
+        genai.configure(api_key=CONFIG["API"]["GEMINI_KEY"])
         self.ai_model = genai.GenerativeModel('gemini-1.5-flash')
-
-    def detect_smc_signal(self, df):
-        """تحليل هيكل السوق بحثاً عن سحب السيولة"""
-        lookback = CONFIG["TRADING"]["RETAIL_LOOKBACK"]
         
-        # تحديد قمم وقيعان المتداولين الأفراد
-        df['r_low'] = df['low'].shift(1).rolling(window=lookback).min()
-        df['r_high'] = df['high'].shift(1).rolling(window=lookback).max()
-        
-        last_candle = df.iloc[-1]
-        
-        # منطق صيد السيولة
-        if last_candle['low'] < last_candle['r_low'] and last_candle['close'] > last_candle['r_low']:
-            return "BUY"
-        elif last_candle['high'] > last_candle['r_high'] and last_candle['close'] < last_candle['r_high']:
-            return "SELL"
-        return "NEUTRAL"
-
-    def consult_gemini(self, symbol, side, price, market_data):
-        """إرسال البيانات لـ Gemini لفلترة القرار وتطوير الاستراتيجية"""
-        try:
-            summary = market_data.tail(15).to_string()
-            prompt = f"""
-            بصفتك مدير تداول لمصطفى، حلل هذه الفرصة:
-            العملة: {symbol} | الإشارة: {side} | السعر: {price}
-            بيانات السوق الأخيرة:
-            {summary}
-            
-            المطلوب:
-            1. رد بـ 'APPROVE' أو 'REJECT' في بداية السطر.
-            2. هل تلاحظ أي مدرسة تحليل جديدة يجب تعلمها؟
-            3. اشرح القرار بالعربية.
-            """
-            response = self.ai_model.generate_content(prompt)
-            return response.text.strip()
-        except Exception as e:
-            return f"REJECT: Error connecting to AI ({e})"
-
-# -----------------------------------------------------------------
-# 4. الذراع التنفيذية (Exchange Interface)
-# -----------------------------------------------------------------
-class ExchangeManager:
-    """المسؤول عن الاتصال بـ Binance وتنفيذ الأوامر"""
-    def __init__(self, api_key, secret_key):
+        # تهيئة بورصة بينانس (وضع التجربة)
         self.exchange = ccxt.binance({
-            'apiKey': api_key,
-            'secret': secret_key,
+            'apiKey': CONFIG["API"]["BINANCE_KEY"],
+            'secret': CONFIG["API"]["BINANCE_SECRET"],
             'enableRateLimit': True,
-            'options': {'defaultType': CONFIG["TRADING"]["MODE"]}
+            'timeout': 30000,
+            'options': {'defaultType': 'spot'}
         })
-        self.exchange.set_sandbox_mode(True) # وضع التجربة (Testnet)
+        self.exchange.set_sandbox_mode(True)
 
-    def get_balance(self):
-        balance = self.exchange.fetch_balance()
-        return float(balance['total']['USDT'])
+    def safe_get_balance(self):
+        """جلب الرصيد بأمان لتجنب انهيار الكود"""
+        try:
+            balance = self.exchange.fetch_balance()
+            return float(balance['total'].get('USDT', 0.0))
+        except:
+            return 0.0
 
     def fetch_market_data(self, symbol):
-        ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe=CONFIG["TRADING"]["TIMEFRAME"], limit=100)
-        df = pd.DataFrame(ohlcv, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
-        df['time'] = pd.to_datetime(df['time'], unit='ms')
-        return df
-
-    def execute_order(self, symbol, side, price):
-        """تنفيذ أمر السوق (Spot Market Order)"""
         try:
-            balance = self.get_balance()
-            if side == "BUY":
-                # شراء بـ 10% من رصيد الـ USDT
-                amount_usdt = balance * CONFIG["TRADING"]["RISK_PERCENT"]
-                quantity = amount_usdt / price
-                return self.exchange.create_market_buy_order(symbol, quantity)
-            elif side == "SELL":
-                # بيع كامل الكمية المملوكة من العملة
-                coin = symbol.split('/')[0]
-                coin_bal = self.exchange.fetch_balance()['total'].get(coin, 0)
-                if coin_bal > 0:
-                    return self.exchange.create_market_sell_order(symbol, coin_bal)
-            return None
-        except Exception as e:
-            st.error(f"Execution Error: {e}")
+            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe=CONFIG["TRADING"]["TIMEFRAME"], limit=100)
+            df = pd.DataFrame(ohlcv, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
+            df['time'] = pd.to_datetime(df['time'], unit='ms')
+            return df
+        except:
             return None
 
-# -----------------------------------------------------------------
-# 5. الواجهة الرسومية (Main Application)
-# -----------------------------------------------------------------
-def run_app():
-    # إعدادات واجهة Streamlit
-    st.set_page_config(page_title="WAHBA SOVEREIGN AI", layout="wide", page_icon="🦅")
+    def analyze_smc(self, df):
+        """تحليل الـ SMC (سحب السيولة)"""
+        lb = CONFIG["TRADING"]["LOOKBACK"]
+        df['low_min'] = df['low'].shift(1).rolling(window=lb).min()
+        df['high_max'] = df['high'].shift(1).rolling(window=lb).max()
+        
+        last = df.iloc[-1]
+        if last['low'] < last['low_min'] and last['close'] > last['low_min']: return "BUY"
+        if last['high'] > last['high_max'] and last['close'] < last['high_max']: return "SELL"
+        return "WAIT"
+
+    def ask_gemini(self, symbol, side, price, df):
+        """قرار Gemini النهائي"""
+        try:
+            context = df.tail(10).to_string()
+            prompt = f"Analyze {symbol} {side} signal at {price}. Market: {context}. Reply 'APPROVE' or 'REJECT' + short Arabic reason."
+            response = self.ai_model.generate_content(prompt)
+            return response.text.strip()
+        except:
+            return "REJECT: AI Offline"
+
+    def execute_spot(self, symbol, side, price):
+        """تنفيذ الصفقة فوري (حلال)"""
+        try:
+            bal = self.safe_get_balance()
+            if side == "BUY" and bal > 10:
+                qty = (bal * CONFIG["TRADING"]["RISK_PERCENT"]) / price
+                return self.exchange.create_market_buy_order(symbol, qty)
+            return None
+        except:
+            return None
+
+# =================================================================
+# 4. واجهة المستخدم (The Dashboard)
+# =================================================================
+def main():
+    st.set_page_config(page_title="Wahba Sovereign AI", layout="wide")
     
-    # تهيئة المكونات (مرة واحدة في الجلسة)
-    if 'db' not in st.session_state:
+    # تهيئة المكونات في الـ Session
+    if 'bot' not in st.session_state:
+        st.session_state.bot = WahbaSovereign()
         st.session_state.db = DatabaseManager(CONFIG["DB_NAME"])
-        st.session_state.brain = SovereignBrain(CONFIG["API"]["GEMINI_KEY"])
-        st.session_state.exchange = ExchangeManager(CONFIG["API"]["BINANCE_KEY"], CONFIG["API"]["BINANCE_SECRET"])
 
+    bot = st.session_state.bot
     db = st.session_state.db
-    brain = st.session_state.brain
-    exchange = st.session_state.exchange
 
-    # --- القائمة الجانبية ---
+    st.title("🦅 Wahba Sovereign AI")
+    st.caption("نظام التداول ذاتي الإدارة والتعلم - نسخة الـ Spot الحلال")
+
+    # القائمة الجانبية
     with st.sidebar:
-        st.image("https://cdn-icons-png.flaticon.com/512/2533/2533515.png", width=80)
-        st.title("🦅 مركز التحكم")
-        st.write("---")
-        bal = exchange.get_balance()
-        st.metric("الرصيد المتاح (USDT)", f"${bal:,.2f}")
-        st.info("الوضع: Spot Trading (حلال)")
+        st.header("📊 حالة الحساب")
+        current_bal = bot.safe_get_balance()
+        st.metric("رصيد USDT التجريبي", f"${current_bal:,.2f}")
+        if current_bal == 0:
+            st.warning("⚠️ لم يتم الربط ببينانس (تأكد من المفاتيح)")
+        st.divider()
+        st.write("المدارس النشطة: SMC, AI-Filter")
 
-    # --- لوحة العرض الرئيسية ---
-    st.title("🦅 Wahba Sovereign AI:Autonomous Trader")
-    st.markdown("### نظام التداول الذكي ذاتي التعلم والمراقب لسيولة المؤسسات")
-    
-    # شبكة العرض للعملات
+    # العرض الرئيسي
     cols = st.columns(len(CONFIG["TRADING"]["SYMBOLS"]))
-    
-    for i, symbol in enumerate(CONFIG["TRADING"]["SYMBOLS"]):
+    for i, sym in enumerate(CONFIG["TRADING"]["SYMBOLS"]):
         with cols[i]:
-            # جلب البيانات والتحليل
-            df = exchange.fetch_market_data(symbol)
-            current_price = df.iloc[-1]['close']
-            signal = brain.detect_smc_signal(df)
-            
-            st.subheader(f"💎 {symbol}")
-            st.metric("Price", f"${current_price:,.2f}")
-            
-            # منطق اتخاذ القرار الآلي
-            if signal != "NEUTRAL":
-                st.write(f"🔍 إشارة {signal} رصدت.. استشارة AI...")
-                decision = brain.consult_gemini(symbol, signal, current_price, df)
+            df = bot.fetch_market_data(sym)
+            if df is not None:
+                price = df.iloc[-1]['close']
+                signal = bot.analyze_smc(df)
                 
-                if "APPROVE" in decision.upper():
-                    st.success(f"✅ Gemini وافق: {decision}")
-                    order = exchange.execute_order(symbol, signal, current_price)
-                    if order:
-                        db.log_trade(symbol, signal, current_price, decision)
-                else:
-                    st.warning(f"❌ Gemini رفض: {decision}")
-            
-            st.line_chart(df['close'].tail(30))
+                st.subheader(sym)
+                st.metric("Price", f"${price:,.2f}")
+                
+                if signal != "WAIT":
+                    st.info(f"🔍 رصد إشارة {signal}")
+                    decision = bot.ask_gemini(sym, signal, price, df)
+                    
+                    if "APPROVE" in decision.upper():
+                        st.success(f"✅ تم القبول: {decision}")
+                        bot.execute_spot(sym, signal, price)
+                        db.save_log(sym, signal, price, decision)
+                    else:
+                        st.warning(f"❌ رفض Gemini: {decision}")
+                
+                st.line_chart(df['close'].tail(25))
+            else:
+                st.error(f"فشل جلب بيانات {sym}")
 
-    # --- سجل النشاط التاريخي ---
     st.divider()
-    st.subheader("📜 سجل الصفقات والتعلم الآلي")
-    history_df = db.get_recent_trades()
-    st.dataframe(history_df, use_container_width=True)
+    st.subheader("📜 سجل العمليات")
+    try:
+        st.dataframe(pd.read_sql("SELECT * FROM trade_logs ORDER BY id DESC LIMIT 10", sqlite3.connect(CONFIG["DB_NAME"])), use_container_width=True)
+    except:
+        st.write("لا توجد عمليات مسجلة بعد.")
 
-    # التحديث التلقائي
     time.sleep(60)
     st.rerun()
 
 if __name__ == "__main__":
-    run_app()
+    main()
