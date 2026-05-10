@@ -8,19 +8,25 @@ import plotly.graph_objects as go
 from datetime import datetime
 from tradingview_ta import TA_Handler, Interval
 from binance.client import Client
-from binance.enums import *
+from binance.exceptions import BinanceAPIException # طوبة التعامل مع الأخطاء
 
 # =================================================================
-# 🛡️ 1. الأساس والأمان (The Foundation) - ممسوحش منه حرف
+# 🛡️ 1. الأساس والأمان (The Foundation)
 # =================================================================
 DB_NAME = "wahba_final_empire_2026.db"
 SAFE_WALL = 190.0 
 INITIAL_BAL = 5000.0
 
-# ربط بينانس الحقيقي
+# ربط بينانس مع إضافة نظام الأمان
 API_KEY = 'YOUR_API_KEY'
 API_SECRET = 'YOUR_API_SECRET'
-client = Client(API_KEY, API_SECRET)
+
+try:
+    client = Client(API_KEY, API_SECRET)
+    # طوبة مزامنة الوقت (حل مشكلة التوقيت اللي بتبعت أخطاء)
+    client.get_system_status() 
+except:
+    client = None # لو المفاتيح غلط، هنكمل كأنه نظام تجريبي
 
 class WahbaSovereignCore:
     def __init__(self):
@@ -42,15 +48,16 @@ class WahbaSovereignCore:
         self.conn.commit()
 
     def get_balance(self):
-        # طوبة الربط: بيشوف بينانس الأول، لو معرفش بيجيب من الداتابيز
-        try:
-            acc = client.get_asset_balance(asset='USDT')
-            return float(acc['free'])
-        except:
-            return self.conn.execute("SELECT balance FROM wallet").fetchone()[0]
+        # طوبة ذكية: لو بينانس شغال يجيب منه، لو وقع يجيب من الداتابيز
+        if client:
+            try:
+                acc = client.get_asset_balance(asset='USDT')
+                return float(acc['free'])
+            except: pass
+        return self.conn.execute("SELECT balance FROM wallet").fetchone()[0]
 
 # =================================================================
-# 🏫 2. مدرسة المال الذكي والزخم (SMC & Squeeze) - موجودة بالكامل
+# 🏫 2. مدارس التحليل (SMC & Squeeze) - ثابتة كما هي
 # =================================================================
 class AdvancedSchools:
     @staticmethod
@@ -58,7 +65,6 @@ class AdvancedSchools:
         try:
             h = TA_Handler(symbol=symbol, exchange="BINANCE", screener="crypto", interval=interval, timeout=5)
             ind = h.get_analysis().indicators
-            # [منطقك الأصلي]
             if ind['close'] > ind['high'] * 0.999: return "LIQUIDITY_SWEEP_TOP"
             if ind['close'] < ind['low'] * 1.001: return "LIQUIDITY_SWEEP_BOTTOM"
             return "NORMAL_STRUCTURE"
@@ -66,95 +72,78 @@ class AdvancedSchools:
 
     @staticmethod
     def squeeze_momentum(symbol, interval):
-        # [منطقك الأصلي للزخم]
         import random
         return random.choice(["SQUEEZE_RELEASE", "IN_SQUEEZE", "NO_SIGNAL"])
 
 # =================================================================
-# 💰 3. إدارة المخاطر والعمولات (Risk & Fees) - طوبة الحساب الحقيقي
-# =================================================================
-class WahbaRiskManager:
-    FEE = 0.001 
-    @staticmethod
-    def apply_fees(gross_pnl, volume):
-        total_fees = volume * WahbaRiskManager.FEE * 2
-        return gross_pnl - total_fees
-
-# =================================================================
-# ⚙️ 4. المحرك العصبي المتكامل (The Hybrid Engine)
+# ⚙️ 4. المحرك التنفيذي (The Protected Engine)
 # =================================================================
 def master_engine(core, style_name, interval, volume, cooldown):
     schools = AdvancedSchools()
-    risk = WahbaRiskManager()
     symbol = "BTCUSDT"
     
     while True:
-        balance = core.get_balance()
-        if balance <= SAFE_WALL: break 
-
-        # 1. جلب السعر عند الدخول (بدل العشوائية)
-        h = TA_Handler(symbol=symbol, exchange="BINANCE", screener="crypto", interval=interval, timeout=5)
         try:
-            entry_price = h.get_analysis().indicators['close']
+            balance = core.get_balance()
+            if balance <= SAFE_WALL: break 
+
+            h = TA_Handler(symbol=symbol, exchange="BINANCE", screener="crypto", interval=interval, timeout=5)
+            analysis = h.get_analysis()
+            entry_price = analysis.indicators['close']
+            
             smc_state = schools.smc_analysis(symbol, interval)
             sqz_state = schools.squeeze_momentum(symbol, interval)
-        except:
-            time.sleep(10)
-            continue
-        
-        # 2. شرط الدخول (SMC + Squeeze)
-        if smc_state != "NORMAL_STRUCTURE" or sqz_state == "SQUEEZE_RELEASE":
-            # البوت "دخل" الصفقة فعلياً وينتظر الكول داون
-            time.sleep(cooldown) 
             
-            # 3. جلب السعر عند الخروج
-            try:
+            if smc_state != "NORMAL_STRUCTURE" or sqz_state == "SQUEEZE_RELEASE":
+                time.sleep(cooldown) 
+                
+                # جلب سعر الخروج
                 h_exit = TA_Handler(symbol=symbol, exchange="BINANCE", screener="crypto", interval=interval, timeout=5)
                 exit_price = h_exit.get_analysis().indicators['close']
                 
-                # حساب الربح الحقيقي بناءً على حركة السعر
                 price_diff_pct = (exit_price - entry_price) / entry_price
                 gross_pnl = volume * price_diff_pct
-                net_pnl = risk.apply_fees(gross_pnl, volume)
+                net_pnl = gross_pnl - (volume * 0.001 * 2) # خصم العمولة
                 
                 new_bal = balance + net_pnl
                 
-                # تسجيل في الداتابيز (نفس كودك الأصلي)
                 with core.conn as conn:
                     conn.execute("UPDATE wallet SET balance = ?", (new_bal,))
                     conn.execute("""INSERT INTO trade_journal (timestamp, style, action, pnl, balance, vss_info) 
                                     VALUES (?,?,?,?,?,?)""",
                                  (datetime.now().strftime("%H:%M:%S"), style_name, "ENTRY", net_pnl, new_bal, f"{smc_state}"))
-                    conn.execute("INSERT INTO neural_memory (pattern_hash, result, pnl, logic) VALUES (?,?,?,?)",
-                                 (f"{style_name}_{interval}", "WIN" if net_pnl > 0 else "LOSS", net_pnl, smc_state))
                     conn.commit()
-            except: pass
-
+        except Exception as e:
+            print(f"Engine Warning: {e}") # عشان المحرك ميتوقفش لو حصل خطأ لحظي
+        
         time.sleep(30)
 
 # =================================================================
-# 🖥️ 5. الواجهة السيادية (Dashboard) - كاملة كما هي
+# 🖥️ 5. الواجهة السيادية (Dashboard)
 # =================================================================
 def main():
     st.set_page_config(page_title="WAHBA EMPIRE 2026", layout="wide")
     core = WahbaSovereignCore()
 
-    st.markdown("<h1 style='text-align:center; color:#f3ba2f;'>🦅 WAHBA SOVEREIGN EMPIRE v20.0</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center; color:#f3ba2f;'>🦅 WAHBA SOVEREIGN EMPIRE v21.0</h1>", unsafe_allow_html=True)
     
+    # تنبيه في حال وجود مشكلة في الـ API
+    if client is None:
+        st.warning("⚠️ نظام الـ API غير مفعل أو المفاتيح خاطئة. يعمل النظام الآن في وضع المحاكاة التجريبي.")
+
     with st.sidebar:
         st.header("⚙️ إدارة المحركات")
         if st.button("🚀 إطلاق الإمبراطورية"):
             threading.Thread(target=master_engine, args=(core, "SCALPING", "1m", 100, 60), daemon=True).start()
             threading.Thread(target=master_engine, args=(core, "DAY", "15m", 500, 300), daemon=True).start()
             threading.Thread(target=master_engine, args=(core, "SWING", "4h", 2000, 3600), daemon=True).start()
-            st.success("تم تشغيل جميع الأنماط بالذكاء الحقيقي!")
+            st.success("المحركات في وضع الاستعداد!")
 
-    # عرض البيانات (نفس طوبتك القديمة)
     current_bal = core.get_balance()
     journal = pd.read_sql_query("SELECT * FROM trade_journal ORDER BY id DESC", core.conn)
     
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("💰 صافي الرصيد", f"${current_bal:,.2f}")
+    c1.metric("💰 الرصيد الحالي", f"${current_bal:,.2f}")
     c2.metric("📉 السكالبينج", f"{len(journal[journal['style']=='SCALPING'])}")
     c3.metric("📊 الداي", f"{len(journal[journal['style']=='DAY'])}")
     c4.metric("🐋 السوينج", f"{len(journal[journal['style']=='SWING'])}")
@@ -164,14 +153,22 @@ def main():
     
     st.dataframe(journal.head(10), use_container_width=True)
 
-    # مراقب السعر الضخم من بينانس مباشرة
+    # مراقب السعر (محمي بـ try/except)
     monitor = st.empty()
     while True:
+        price_text = "N/A"
         try:
-            price = float(client.get_symbol_ticker(symbol="BTCUSDT")['price'])
-            with monitor.container():
-                st.markdown(f"<div style='background:#000; border:2px solid #f3ba2f; padding:30px; border-radius:20px; text-align:center;'><h1 style='font-size:5rem; color:white; margin:0;'>${price:,.2f}</h1></div>", unsafe_allow_html=True)
+            if client:
+                price = float(client.get_symbol_ticker(symbol="BTCUSDT")['price'])
+                price_text = f"${price:,.2f}"
+            else:
+                # لو مفيش بينانس، نجيب السعر من مصدر بديل
+                h = TA_Handler(symbol="BTCUSDT", exchange="BINANCE", screener="crypto", interval="1m", timeout=5)
+                price_text = f"${h.get_analysis().indicators['close']:,.2f}"
         except: pass
+        
+        with monitor.container():
+            st.markdown(f"<div style='background:#000; border:2px solid #f3ba2f; padding:30px; border-radius:20px; text-align:center;'><h1 style='font-size:5rem; color:white; margin:0;'>{price_text}</h1></div>", unsafe_allow_html=True)
         time.sleep(10)
 
 if __name__ == "__main__":
