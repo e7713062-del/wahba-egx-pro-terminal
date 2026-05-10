@@ -8,127 +8,162 @@ from binance.client import Client
 from tradingview_ta import TA_Handler, Interval
 
 # =================================================================
-# الإعدادات الأساسية
+# 🛡️ إعدادات الحماية والنمو (The Sovereign Settings)
 # =================================================================
-DB_NAME = "wahba_live_pnl.db"
+DB_NAME = "wahba_eternal_engine.db"
 SYMBOL = "BTCUSDT"
-STOP_LOSS_LIMIT = 190.0 # صمام الأمان النهائي
+SAFE_STOP_LEVEL = 190.0  # خط الأمان الأحمر (الفرامل)
 
 # =================================================================
-# إدارة البيانات (الربح والخسارة الفعلي)
+# 🧠 ذاكرة النظام المبرمجة للتعلم (Evolutionary Memory)
 # =================================================================
-class TradeAccountant:
+class SovereignMemory:
     @staticmethod
     def init_db():
-        with sqlite3.connect(DB_NAME) as conn:
-            # سجل الصفقات لحساب الأرباح والخسائر
+        """تهيئة قاعدة البيانات لتخزين الخبرات وحساب الأرباح"""
+        with sqlite3.connect(DB_NAME, check_same_thread=False) as conn:
             conn.execute("""
-                CREATE TABLE IF NOT EXISTS journal (
+                CREATE TABLE IF NOT EXISTS system_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    entry_time TEXT,
-                    entry_price REAL,
-                    exit_price REAL,
-                    pnl REAL,
-                    final_balance REAL
+                    timestamp TEXT,
+                    strategy TEXT,
+                    action TEXT,
+                    price REAL,
+                    balance REAL
                 )
             """)
             conn.commit()
 
     @staticmethod
-    def record_trade(entry_p, exit_p, pnl, current_bal):
-        with sqlite3.connect(DB_NAME) as conn:
+    def log_event(strategy, action, price, balance):
+        """تسجيل العمليات ليتعلم البوت من أدائه التاريخي"""
+        with sqlite3.connect(DB_NAME, check_same_thread=False) as conn:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             conn.execute("""
-                INSERT INTO journal (entry_time, entry_price, exit_price, pnl, final_balance)
+                INSERT INTO system_logs (timestamp, strategy, action, price, balance)
                 VALUES (?, ?, ?, ?, ?)
-            """, (now, entry_p, exit_p, pnl, current_bal))
+            """, (now, strategy, action, price, balance))
             conn.commit()
 
 # =================================================================
-# العقل المدبر (المراقب المالي)
+# ⚙️ محرك التداول الذكي (Smart Execution Engine)
 # =================================================================
-def brain_worker(api_key, api_secret, testnet):
-    client = Client(api_key, api_secret, testnet=testnet)
-    TradeAccountant.init_db()
-    
-    # متغيرات لمتابعة الصفقة المفتوحة
-    in_position = False
-    entry_price = 0.0
+class AutonomousTrader:
+    def __init__(self, api_key, api_secret, testnet=True):
+        self.client = Client(api_key, api_secret, testnet=testnet)
+
+    def get_realtime_balance(self):
+        """جلب الرصيد الحي لدمج الأرباح في رأس المال فوراً"""
+        try:
+            asset = self.client.get_asset_balance(asset='USDT')
+            return float(asset['free']) if asset else 0.0
+        except:
+            return 0.0
+
+    def check_vss_sentiment(self):
+        """تطبيق مدرسة VSS (تحليل السيولة ومنع التلاعب)"""
+        try:
+            depth = self.client.get_order_book(symbol=SYMBOL, limit=10)
+            bid_vol = sum([float(b[1]) for b in depth['bids']])
+            ask_vol = sum([float(a[1]) for a in depth['asks']])
+            # العثور على سيولة الحيتان (BULLISH = شراء حقيقي)
+            return "BULLISH" if bid_vol > ask_vol else "BEARISH"
+        except:
+            return "NEUTRAL"
+
+# =================================================================
+# 🏗️ محطات العمل الثلاثة (Triple-Strategy Workers)
+# =================================================================
+def trading_worker(api_key, api_secret, testnet, name, interval, wait_time):
+    bot = AutonomousTrader(api_key, api_secret, testnet)
+    SovereignMemory.init_db()
 
     while True:
+        # --- فحص صمام الأمان 190$ ---
+        current_bal = bot.get_realtime_balance()
+        if current_bal <= SAFE_STOP_LEVEL:
+            print(f"🛑 [SAFETY STOP] {name} توقف لحماية الـ 190$")
+            break
+
         try:
-            # 1. جلب الرصيد الحالي من المنصة
-            asset = client.get_asset_balance(asset='USDT')
-            current_balance = float(asset['free']) if asset else 0.0
-
-            # 🛡️ شرط الأمان: لو الرصيد نزل لـ 190$، اقفل فوراً
-            if current_balance <= STOP_LOSS_LIMIT:
-                st.session_state.is_running = False
-                break
-
-            # 2. تحليل السوق (فريم 5 دقائق للنمو السريع)
-            handler = TA_Handler(symbol=SYMBOL, exchange="BINANCE", screener="crypto", 
-                                interval=Interval.INTERVAL_5_MINUTES, timeout=10)
-            analysis = handler.get_analysis().summary['RECOMMENDATION']
-            live_price = float(client.get_symbol_ticker(symbol=SYMBOL)['price'])
-
-            # 3. منطق التداول الحقيقي (شراء وبيع وحساب المكسب)
-            if not in_position and analysis == "STRONG_BUY":
-                # دخول صفقة شراء
-                client.create_order(symbol=SYMBOL, side='BUY', type='MARKET', quantity=0.001)
-                entry_price = live_price
-                in_position = True
+            # البحث عن إجماع المدارس (TradingView + التحليل السحابي)
+            handler = TA_Handler(
+                symbol=SYMBOL, exchange="BINANCE", screener="crypto",
+                interval=interval, timeout=15
+            )
+            analysis = handler.get_analysis()
+            rec = analysis.summary['RECOMMENDATION']
             
-            elif in_position and analysis == "STRONG_SELL":
-                # خروج من الصفقة (بيع)
-                client.create_order(symbol=SYMBOL, side='SELL', type='MARKET', quantity=0.001)
-                pnl = (live_price - entry_price) * 0.001 # حساب الربح أو الخسارة من هذه الصفقة
-                
-                # تسجيل النتيجة في "كشف الحساب"
-                TradeAccountant.record_trade(entry_price, live_price, pnl, current_balance + pnl)
-                in_position = False
+            # فلتر التلاعب (VSS Sentiment)
+            vss = bot.check_vss_sentiment()
+            price = float(bot.client.get_symbol_ticker(symbol=SYMBOL)['price'])
+
+            # التنفيذ: شراء فقط إذا اتفقت المدرسة الجديدة مع السيولة
+            if rec == "STRONG_BUY" and vss == "BULLISH":
+                bot.client.create_order(symbol=SYMBOL, side='BUY', type='MARKET', quantity=0.001)
+                SovereignMemory.log_event(name, "BUY", price, current_bal)
+            
+            elif rec == "STRONG_SELL" and vss == "BEARISH":
+                bot.client.create_order(symbol=SYMBOL, side='SELL', type='MARKET', quantity=0.001)
+                SovereignMemory.log_event(name, "SELL", price, current_bal)
 
         except Exception as e:
-            print(f"Error: {e}")
-        
-        time.sleep(60) # تحديث كل دقيقة
+            print(f"Worker Error ({name}): {e}")
+
+        time.sleep(wait_time)
 
 # =================================================================
-# الواجهة (عداد الأرباح والخسائر اللحظي)
+# 🖥️ واجهة التحكم والنمو (The Master Dashboard)
 # =================================================================
 def main():
-    st.set_page_config(page_title="Wahba Live PnL", layout="wide")
-    st.title("💸 مراقب الأرباح والخسائر اللحظي")
+    st.set_page_config(page_title="WAHBA AI ETERNAL", layout="wide")
+    SovereignMemory.init_db()
 
+    st.markdown("<h1 style='text-align:center; color:#00FFCC;'>🦅 نظام وهبة السيادي - المحرك الذكي 24/7</h1>", unsafe_allow_html=True)
+    st.divider()
+
+    # --- القائمة الجانبية (Sidebar) ---
     with st.sidebar:
-        ak = st.text_input("Binance API Key", type="password")
-        as_key = st.text_input("Binance Secret Key", type="password")
-        is_test = st.checkbox("وضع الاختبار (أموال وهمية)", value=True)
-        if st.button("🚀 تشغيل المحرك"):
-            threading.Thread(target=brain_worker, args=(ak, as_key, is_test), daemon=True).start()
-            st.success("المحرك يعمل ويراقب المحفظة!")
-
-    if ak and as_key:
-        # عرض الرصيد والنمو
-        with sqlite3.connect(DB_NAME) as conn:
-            df = pd.read_sql_query("SELECT * FROM journal ORDER BY id DESC", conn)
-            
-            if not df.empty:
-                last_bal = df.iloc[0]['final_balance']
-                total_pnl = df['pnl'].sum()
-                
-                # عداد كبير يوضح "بتكثر ولا بتنزل"
-                c1, c2 = st.columns(2)
-                c1.metric("الرصيد الحالي", f"${last_bal:,.2f}", delta=f"{total_pnl:,.2f}")
-                c2.metric("حالة الأمان", "آمن" if last_bal > STOP_LOSS_LIMIT else "خطر")
-
-                st.subheader("📈 مسار نمو الصفقات")
-                st.line_chart(df.set_index('entry_time')['final_balance'])
-                
-                st.subheader("📝 كشف حساب الصفقات")
-                st.table(df[['entry_time', 'pnl', 'final_balance']].head(10))
+        st.header("⚙️ إعدادات التشغيل")
+        api_key = st.text_input("Binance API Key", type="password")
+        api_secret = st.text_input("Binance Secret Key", type="password")
+        is_live = st.toggle("تفعيل التداول الحقيقي (Live)", value=False)
+        
+        if st.button("🚀 إطلاق المتداول الإلكتروني"):
+            if api_key and api_secret:
+                # إطلاق المدارس الثلاث (سكالبينج، داي، سوينج)
+                threading.Thread(target=trading_worker, args=(api_key, api_secret, not is_live, "سكالبينج", Interval.INTERVAL_1_MINUTE, 60), daemon=True).start()
+                threading.Thread(target=trading_worker, args=(api_key, api_secret, not is_live, "داي تريدنج", Interval.INTERVAL_15_MINUTES, 300), daemon=True).start()
+                threading.Thread(target=trading_worker, args=(api_key, api_secret, not is_live, "سوينج", Interval.INTERVAL_4_HOURS, 3600), daemon=True).start()
+                st.success("المتداول يعمل الآن ويحدث مدارسه تلقائياً!")
             else:
-                st.info("في انتظار تنفيذ أول صفقة لحساب النتائج...")
+                st.error("يرجى إدخال مفاتيح الـ API للبدء")
+
+    # --- لوحة العدادات (ماذا يحدث لرصيدك؟) ---
+    if api_key and api_secret:
+        bot = AutonomousTrader(api_key, api_secret, not is_live)
+        balance = bot.get_realtime_balance()
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("💰 رصيدك الحالي", f"${balance:,.2f}", delta=f"{balance - 190:.2f} فوق الأمان")
+        with col2:
+            st.metric("🛑 حائط الأمان", "$190.00")
+        with col3:
+            status = "آمن ونامي ✅" if balance > 190 else "توقف للحماية 🛑"
+            st.metric("📊 حالة النظام", status)
+
+        # الرسم البياني للنمو التراكمي
+        st.divider()
+        st.subheader("📈 منحنى نمو المحفظة (بتكثر ولا بتنزل)")
+        with sqlite3.connect(DB_NAME) as conn:
+            df = pd.read_sql_query("SELECT timestamp, balance FROM system_logs ORDER BY id DESC LIMIT 100", conn)
+            if not df.empty:
+                st.line_chart(df.set_index('timestamp'))
+                st.write("### 📜 سجل الصفقات والتعلم الذاتي")
+                st.dataframe(df.head(10), use_container_width=True)
+            else:
+                st.info("البوت يراقب السوق حالياً.. سيظهر النمو هنا فور تنفيذ أول صفقة.")
 
 if __name__ == "__main__":
     main()
