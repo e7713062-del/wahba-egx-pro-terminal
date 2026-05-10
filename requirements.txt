@@ -2,4 +2,3 @@ streamlit
 pandas
 ccxt
 google-generativeai
-sqlite3
