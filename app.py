@@ -4,181 +4,192 @@ import sqlite3
 import threading
 import time
 import random 
-import numpy as np
-import plotly.graph_objects as go
+import os
+import csv
 from datetime import datetime
 from tradingview_ta import TA_Handler, Interval
-from binance.client import Client
-from binance.exceptions import BinanceAPIException
-import requests
+import plotly.graph_objects as go
 
 # =================================================================
-# 🏗️ الدور الجديد: نظام الربط السيادي (Binance Sovereign Link)
+# 📂 القسم 1: مركز التخزين (Wahba Storage Hub)
 # =================================================================
-API_KEY = 'YOUR_API_KEY'
-API_SECRET = 'YOUR_API_SECRET'
+class WahbaStorage:
+    DB_NAME = "wahba_empire_pro.db"
+    VAULT_FILE = "wahba_trading_vault.csv"
 
-# طوبة الربط (الدور الـ 25) - مضافة كزيادة وليس استبدال
-try:
-    session = requests.Session()
-    client = Client(API_KEY, API_SECRET, {"session": session, "timeout": 30})
-    server_time = client.get_server_time()
-    client.timestamp_offset = server_time['serverTime'] - int(time.time() * 1000)
-    api_status = "REAL_ACTIVE"
-except:
-    client = None
-    api_status = "SIMULATION_MODE"
-
-# =================================================================
-# 🛡️ 1. الأساس والأمان (The Foundation) - [كامل كما هو]
-# =================================================================
-DB_NAME = "wahba_final_empire_2026.db"
-SAFE_WALL = 190.0 
-INITIAL_BAL = 5000.0
-
-class WahbaSovereignCore:
-    def __init__(self):
-        self.conn = sqlite3.connect(DB_NAME, check_same_thread=False)
-        self._build_tables()
-
-    def _build_tables(self):
-        cursor = self.conn.cursor()
+    @staticmethod
+    def init_storage():
+        """تجهيز الداتابيز والخزنة المحلية عند التشغيل"""
+        conn = sqlite3.connect(WahbaStorage.DB_NAME, check_same_thread=False)
+        cursor = conn.cursor()
+        # محفظة وهبة
         cursor.execute("CREATE TABLE IF NOT EXISTS wallet (id INTEGER PRIMARY KEY, balance REAL)")
-        cursor.execute("""CREATE TABLE IF NOT EXISTS neural_memory (
+        # سجل العمليات (Journal)
+        cursor.execute("""CREATE TABLE IF NOT EXISTS journal (
                             id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                            pattern_hash TEXT, result TEXT, pnl REAL, logic TEXT)""")
-        cursor.execute("""CREATE TABLE IF NOT EXISTS trade_journal (
+                            ts TEXT, style TEXT, type TEXT, 
+                            pnl REAL, bal REAL, logic TEXT)""")
+        # الذاكرة العصبية الذكية
+        cursor.execute("""CREATE TABLE IF NOT EXISTS brain (
                             id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                            timestamp TEXT, style TEXT, action TEXT, 
-                            pnl REAL, balance REAL, vss_info TEXT)""")
+                            pattern TEXT, result TEXT, pnl REAL)""")
+        
         if not cursor.execute("SELECT balance FROM wallet").fetchone():
-            cursor.execute("INSERT INTO wallet VALUES (1, ?)", (INITIAL_BAL,))
-        self.conn.commit()
+            cursor.execute("INSERT INTO wallet VALUES (1, 5000.0)")
+        conn.commit()
+        conn.close()
 
-    def get_balance(self):
-        if client:
+    @staticmethod
+    def save_to_csv(data):
+        """حفظ نسخة احتياطية فورية في ملف CSV"""
+        file_exists = os.path.isfile(WahbaStorage.VAULT_FILE)
+        with open(WahbaStorage.VAULT_FILE, mode='a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(['Timestamp', 'Strategy', 'Net_PNL', 'Current_Balance', 'Market_Logic'])
+            writer.writerow(data)
+
+# =================================================================
+# 🧠 القسم 2: مختبر التحليل (SMC & Wyckoff Lab)
+# =================================================================
+class MarketAnalyst:
+    @staticmethod
+    def get_signal(symbol, interval):
+        """تحليل عميق للسوق باستخدام SMC و Wyckoff"""
+        try:
+            h = TA_Handler(symbol=symbol, exchange="BINANCE", screener="crypto", interval=interval, timeout=7)
+            analysis = h.get_analysis()
+            ind = analysis.indicators
+            curr_p = ind['close']
+            
+            # --- منطق المال الذكي (SMC) ---
+            logic = "ACCUMULATION" # تجميع (وايكوف)
+            if curr_p > ind['high'] * 0.9995: logic = "LIQUIDITY_HUNT_TOP"
+            elif curr_p < ind['low'] * 1.0005: logic = "LIQUIDITY_HUNT_BOTTOM"
+            
+            # --- مراجعة الزخم (Squeeze) ---
+            momentum = "STABLE"
+            if ind['RSI'] > 70: momentum = "OVERBOUGHT"
+            elif ind['RSI'] < 30: momentum = "OVERSOLD"
+            
+            return curr_p, logic, momentum
+        except:
+            return None, "CONNECTING", "STABLE"
+
+# =================================================================
+# ⚙️ القسم 3: محركات التنفيذ (The Sovereign Engines)
+# =================================================================
+class TradingEngine:
+    def __init__(self, style, interval, volume, duration):
+        self.style = style
+        self.interval = interval
+        self.volume = volume
+        self.duration = duration
+        self.fee_rate = 0.002 # عمولة 0.2% (دخول وخروج)
+
+    def run(self):
+        """تشغيل المحرك في مسار منفصل"""
+        while True:
             try:
-                acc = client.get_asset_balance(asset='USDT')
-                return float(acc['free'])
+                price, logic, mom = MarketAnalyst.get_signal("BTCUSDT", self.interval)
+                
+                if price:
+                    # شرط الدخول: سحب سيولة أو تشبع بيعي/شرائي
+                    if logic != "ACCUMULATION" or mom != "STABLE":
+                        entry_p = price
+                        time.sleep(self.duration) # مدة الصفقة
+                        
+                        # سعر الخروج وحساب النتائج
+                        exit_data = MarketAnalyst.get_signal("BTCUSDT", self.interval)
+                        exit_p = exit_data[0] if exit_data[0] else entry_p
+                        
+                        # الحسبة المالية (صافي الربح بعد العمولات)
+                        pnl = (self.volume * (exit_p - entry_p) / entry_p) - (self.volume * self.fee_rate)
+                        
+                        # التحديث في الداتابيز
+                        self._update_empire(pnl, logic)
             except: pass
-        return self.conn.execute("SELECT balance FROM wallet").fetchone()[0]
+            time.sleep(15)
+
+    def _update_empire(self, pnl, logic):
+        conn = sqlite3.connect(WahbaStorage.DB_NAME)
+        curr_bal = conn.execute("SELECT balance FROM wallet").fetchone()[0]
+        new_bal = curr_bal + pnl
+        ts = datetime.now().strftime("%H:%M:%S")
+        
+        with conn:
+            conn.execute("UPDATE wallet SET balance = ?", (new_bal,))
+            conn.execute("INSERT INTO journal (ts, style, type, pnl, bal, logic) VALUES (?,?,?,?,?,?)",
+                         (ts, self.style, "BOT_ACTION", pnl, new_bal, logic))
+            conn.execute("INSERT INTO brain (pattern, result, pnl) VALUES (?,?,?)",
+                         (f"{self.style}_{logic}", "WIN" if pnl > 0 else "LOSS", pnl))
+        conn.close()
+        # حفظ في الخزنة الخارجية
+        WahbaStorage.save_to_csv([ts, self.style, f"{pnl:.4f}", f"{new_bal:.2f}", logic])
 
 # =================================================================
-# 🏫 2. مدارس التحليل (SMC & Squeeze & TA) - [ممنوع المسح]
-# =================================================================
-class AdvancedSchools:
-    @staticmethod
-    def smc_analysis(symbol, interval):
-        try:
-            h = TA_Handler(symbol=symbol, exchange="BINANCE", screener="crypto", interval=interval, timeout=5)
-            ind = h.get_analysis().indicators
-            # طوبتك الأصلية: تحليل السيولة
-            if ind['close'] > ind['high'] * 0.999: return "LIQUIDITY_SWEEP_TOP"
-            if ind['close'] < ind['low'] * 1.001: return "LIQUIDITY_SWEEP_BOTTOM"
-            return "NORMAL_STRUCTURE"
-        except: return "SCANNING"
-
-    @staticmethod
-    def squeeze_momentum(symbol, interval):
-        # طوبتك الأصلية: مؤشر الزخم
-        return random.choice(["SQUEEZE_RELEASE", "IN_SQUEEZE", "NO_SIGNAL"])
-
-# =================================================================
-# ⚙️ 4. المحرك التنفيذي (The Multi-Thread Engine) - [مدمج بالكامل]
-# =================================================================
-def master_engine(core, style_name, interval, volume, cooldown):
-    schools = AdvancedSchools()
-    symbol = "BTCUSDT"
-    
-    while True:
-        try:
-            balance = core.get_balance()
-            if balance <= SAFE_WALL: break 
-
-            # جلب بيانات السعر الحقيقية للدخول
-            h = TA_Handler(symbol=symbol, exchange="BINANCE", screener="crypto", interval=interval, timeout=5)
-            entry_price = h.get_analysis().indicators['close']
-            
-            # استدعاء المدارس (SMC + Squeeze)
-            smc_state = schools.smc_analysis(symbol, interval)
-            sqz_state = schools.squeeze_momentum(symbol, interval)
-            
-            # منطق الدخول اللي بنيناه طوبة طوبة
-            if smc_state != "NORMAL_STRUCTURE" or sqz_state == "SQUEEZE_RELEASE":
-                # وقت الصفقة
-                time.sleep(cooldown) 
-                
-                # جلب سعر الخروج وحساب الربح (الطوبة المنطقية)
-                h_exit = TA_Handler(symbol=symbol, exchange="BINANCE", screener="crypto", interval=interval, timeout=5)
-                exit_price = h_exit.get_analysis().indicators['close']
-                
-                price_diff = (exit_price - entry_price) / entry_price
-                net_pnl = (volume * price_diff) - (volume * 0.002) 
-                
-                new_bal = balance + net_pnl
-                
-                # التسجيل في الداتابيز والذاكرة العصبية (ممسوحش منها حرف)
-                with core.conn as conn:
-                    conn.execute("UPDATE wallet SET balance = ?", (new_bal,))
-                    conn.execute("""INSERT INTO trade_journal (timestamp, style, action, pnl, balance, vss_info) 
-                                    VALUES (?,?,?,?,?,?)""",
-                                 (datetime.now().strftime("%H:%M:%S"), style_name, "REAL_TRADE", net_pnl, new_bal, f"{smc_state}|{sqz_state}"))
-                    conn.execute("INSERT INTO neural_memory (pattern_hash, result, pnl, logic) VALUES (?,?,?,?)",
-                                 (f"{style_name}_{interval}", "WIN" if net_pnl > 0 else "LOSS", net_pnl, smc_state))
-                    conn.commit()
-        except: pass
-        time.sleep(30)
-
-# =================================================================
-# 🖥️ 5. الواجهة السيادية (Dashboard) - [الهيكل الكامل]
+# 🖥️ القسم 4: واجهة التحكم (The Command Center)
 # =================================================================
 def main():
-    st.set_page_config(page_title="WAHBA EMPIRE 2026", layout="wide")
-    core = WahbaSovereignCore()
+    st.set_page_config(page_title="WAHBA EMPIRE v32", layout="wide")
+    WahbaStorage.init_storage()
 
-    st.markdown("<h1 style='text-align:center; color:#f3ba2f;'>🦅 WAHBA SOVEREIGN EMPIRE v26.0</h1>", unsafe_allow_html=True)
+    # تصميم الواجهة الملكي
+    st.markdown("""
+        <style>
+        .main { background-color: #0e1117; }
+        .stMetric { background-color: #1f2937; padding: 15px; border-radius: 10px; border: 1px solid #f3ba2f; }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<h1 style='text-align:center; color:#f3ba2f;'>🦅 WAHBA SOVEREIGN EMPIRE v32.0</h1>", unsafe_allow_html=True)
     
-    # تنبيه الحالة (طوبة الأمان)
-    if api_status == "REAL_ACTIVE":
-        st.success("✅ الإمبراطورية متصلة ببينانس - وضع التداول الحقيقي.")
-    else:
-        st.warning("⚠️ وضع المحاكاة نشط - جاري استخدام البيانات التجريبية.")
+    # العدادات العلوية
+    conn = sqlite3.connect(WahbaStorage.DB_NAME)
+    bal = conn.execute("SELECT balance FROM wallet").fetchone()[0]
+    journal_df = pd.read_sql_query("SELECT * FROM journal ORDER BY id DESC", conn)
+    brain_count = conn.execute("SELECT COUNT(*) FROM brain").fetchone()[0]
+    conn.close()
 
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("💰 الرصيد الإجمالي", f"${bal:,.2f}")
+    c2.metric("🧠 الذكاء المكتسب", f"{brain_count} نمط")
+    c3.metric("📊 صفقات اليوم", len(journal_df))
+    c4.metric("📂 الخزنة المحلية", "Active")
+
+    # لوحة إطلاق المحركات
     with st.sidebar:
         st.header("⚙️ إدارة المحركات")
-        if st.button("🚀 إطلاق الإمبراطورية (Threads)"):
-            # تشغيل الـ 3 أنماط في وقت واحد كما في الكود القديم
-            threading.Thread(target=master_engine, args=(core, "SCALPING", "1m", 100, 60), daemon=True).start()
-            threading.Thread(target=master_engine, args=(core, "DAY", "15m", 500, 300), daemon=True).start()
-            threading.Thread(target=master_engine, args=(core, "SWING", "4h", 2000, 3600), daemon=True).start()
-            st.info("تم تشغيل محركات السكالبينج، والداي، والسوينج.")
+        if st.button("🚀 إطلاق الإمبراطورية"):
+            # 1. محرك السكالبينج (سريع - حجم صغير)
+            threading.Thread(target=TradingEngine("SCALPING", "1m", 100, 60).run, daemon=True).start()
+            # 2. محرك اليومي (متوسط - حجم أكبر)
+            threading.Thread(target=TradingEngine("DAY_TRADE", "15m", 500, 300).run, daemon=True).start()
+            # 3. محرك السوينج (صيد الحيتان - حجم كبير)
+            threading.Thread(target=TradingEngine("SWING", "1h", 2000, 3600).run, daemon=True).start()
+            st.success("تم تشغيل جميع الأنظمة!")
 
-    # عرض الإحصائيات (طوبتك المفضلة)
-    current_bal = core.get_balance()
-    journal = pd.read_sql_query("SELECT * FROM trade_journal ORDER BY id DESC", core.conn)
-    
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("💰 الرصيد المباشر", f"${current_bal:,.2f}")
-    c2.metric("📉 صفقات Scp", len(journal[journal['style']=='SCALPING']))
-    c3.metric("📊 صفقات Day", len(journal[journal['style']=='DAY']))
-    c4.metric("🐋 صفقات Swg", len(journal[journal['style']=='SWING']))
+    # عرض الرسوم البيانية والسجلات
+    if not journal_df.empty:
+        col_left, col_right = st.columns([2, 1])
+        with col_left:
+            fig = go.Figure(go.Scatter(x=journal_df['ts'], y=journal_df['bal'], mode='lines+markers', name='Wealth'))
+            fig.update_layout(title="منحنى نمو الإمبراطورية", template="plotly_dark", height=400)
+            st.plotly_chart(fig, use_container_width=True)
+        with col_right:
+            st.write("### 📜 آخر العمليات")
+            st.dataframe(journal_df[['ts', 'style', 'pnl', 'logic']].head(10), use_container_width=True)
 
-    if not journal.empty:
-        st.plotly_chart(go.Figure(go.Scatter(x=journal['timestamp'], y=journal['balance'], mode='lines', name='Growth')), use_container_width=True)
-    
-    st.write("### 📜 السجل التاريخي المتكامل")
-    st.dataframe(journal.head(15), use_container_width=True)
-
-    # مراقب السعر الضخم
+    # مراقب السوق الحي
+    st.divider()
     monitor = st.empty()
     while True:
         try:
-            h_p = TA_Handler(symbol="BTCUSDT", exchange="BINANCE", screener="crypto", interval="1m", timeout=5)
-            price = h_p.get_analysis().indicators['close']
+            p, _, _ = MarketAnalyst.get_signal("BTCUSDT", "1m")
             with monitor.container():
-                st.markdown(f"<div style='background:#000; border:2px solid #f3ba2f; padding:30px; border-radius:20px; text-align:center;'><h1 style='font-size:5rem; color:white; margin:0;'>${price:,.2f}</h1></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center;'><h2 style='color:#f3ba2f;'>LIVE BTC PRICE: ${p:,.2f}</h2></div>", unsafe_allow_html=True)
         except: pass
-        time.sleep(10)
+        time.sleep(5)
 
 if __name__ == "__main__":
     main()
