@@ -1,4 +1,6 @@
 streamlit
-python-binance
-tradingview-ta
 pandas
+tradingview_ta
+python-binance
+plotly
+numpy
