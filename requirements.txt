@@ -3,7 +3,3 @@ pandas
 ccxt
 google-generativeai
 sqlite3
-google-generativeai
-streamlit
-pandas
-ccxt
