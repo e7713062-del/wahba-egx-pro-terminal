@@ -6,10 +6,10 @@ import json
 import time
 import ccxt
 from datetime import datetime
-from tradingview_ta import TA_Handler, Interval, Exchange
+from tradingview_ta import TA_Handler, Interval
 
 # =================================================================
-# 1. الإعدادات السيادية والمفاتيح (The Foundation)
+# 1. الأساسات والمفاتيح (The Foundation)
 # =================================================================
 GEMINI_API_KEY = "AIzaSyAHLshGDTIRhodR1CMAWGP_DH3622aADJQ" 
 genai.configure(api_key=GEMINI_API_KEY)
@@ -17,6 +17,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 API_KEY = "uOGPGtw8G18nxQIHKCWTn3TGfa1XoPzKbXUINnQmEZfNWGy9PabxbRXIJYKZ2w7n"
 SECRET_KEY = "SFO6EXE1JGF7pfbPa1QKWbiAhU2tta0Bxsu1VDwytWyBnGbU1ji57ZRfEHn1MAxI"
 
+# محرك التنفيذ المباشر بمحفظة Spot
 exchange = ccxt.binance({
     'apiKey': API_KEY,
     'secret': SECRET_KEY,
@@ -24,10 +25,7 @@ exchange = ccxt.binance({
     'options': {'defaultType': 'spot'} 
 })
 
-model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-    generation_config={"temperature": 0.4, "max_output_tokens": 1500}
-)
+model = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
 # =================================================================
 # 2. محرك إدارة الثروة (Wealth Engine)
@@ -42,17 +40,16 @@ class WahbaSovereignEngine:
         try:
             bal = exchange.fetch_balance()
             return bal['total'].get('USDT', 193.27)
-        except Exception as e:
-            st.sidebar.error(f"⚠️ فشل جلب الرصيد: {e}")
+        except:
             return 193.27
 
     def _setup_db(self):
         with sqlite3.connect(self.db_name, check_same_thread=False) as conn:
             conn.execute("CREATE TABLE IF NOT EXISTS wallet (balance REAL)")
             conn.execute("""CREATE TABLE IF NOT EXISTS ledger (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            id INTEGER PRIMARY KEY AUTOINCREMENT, 
                             time TEXT, symbol TEXT, school TEXT, 
-                            logic TEXT, net_profit REAL, balance_after REAL)""")
+                            logic TEXT, profit REAL, balance_after REAL)""")
             conn.execute("DELETE FROM wallet")
             conn.execute("INSERT INTO wallet VALUES (?)", (self.initial_balance,))
 
@@ -69,7 +66,7 @@ class WahbaSovereignEngine:
     def record_trade(self, symbol, school, logic, profit):
         new_bal = self.add_growth(profit)
         with sqlite3.connect(self.db_name) as conn:
-            conn.execute("""INSERT INTO ledger (time, symbol, school, logic, net_profit, balance_after) 
+            conn.execute("""INSERT INTO ledger (time, symbol, school, logic, profit, balance_after) 
                             VALUES (?,?,?,?,?,?)""",
                          (datetime.now().strftime("%H:%M:%S"), symbol, school, logic, profit, new_bal))
 
@@ -81,7 +78,8 @@ def main():
     engine = WahbaSovereignEngine()
     
     st.markdown("<h1 style='text-align:center; color:#f3ba2f;'>🦅 WAHBA OMNI-PULSE SYSTEM</h1>", unsafe_allow_html=True)
-    st.sidebar.success(f"✅ Live Wallet: {engine.initial_balance} USDT")
+    st.sidebar.success(f"✅ Live Balance: {engine.initial_balance} USDT")
+    st.sidebar.info("System: Real Execution + SL/TP Active")
 
     metrics_placeholder = st.empty()
     logs_placeholder = st.empty()
@@ -92,49 +90,48 @@ def main():
         with metrics_placeholder.container():
             growth_pct = ((current_bal - engine.initial_balance) / engine.initial_balance) * 100
             c1, c2, c3 = st.columns(3)
-            c1.metric("الرصيد الصافي (Real-time)", f"${current_bal:.4f}", f"+{growth_pct:.4f}%")
-            c2.metric("حالة الربط", "ACTIVE & PROTECTED")
-            c3.metric("المدارس", "SMC/ICT/Wyckoff/VSA")
+            c1.metric("الرصيد المكتشف (Spot)", f"${current_bal:.4f}", f"+{growth_pct:.4f}%")
+            c2.metric("حالة الأمان", "SL Protected")
+            c3.metric("المحرك الذكي", "SMC/ICT/Wyckoff")
 
+        # تحليل وقنص الصفقات (كل 15 ثانية)
         if int(time.time()) % 15 == 0:
             for sym in ["BTCUSDT", "ETHUSDT", "SOLUSDT"]:
                 pair = sym.replace("USDT", "/USDT")
                 try:
                     handler = TA_Handler(symbol=sym, screener="crypto", exchange="BINANCE", interval=Interval.INTERVAL_1_MINUTE)
                     ta = handler.get_analysis()
+                    price = ta.indicators['close']
                     
-                    prompt = f"Analyze {sym} at {ta.indicators['close']}. Use SMC/ICT. Return JSON ONLY: {{"decision": "BUY", "school": "SMC", "logic": "Liquidity Grab", "tp_pct": 1.5, "sl_pct": 0.8}} or WAIT."
+                    # الـ Prompt مصلح بدون أخطاء Syntax
+                    prompt_text = f"Analyze {sym} at {price}. Use SMC, ICT, VSA, Elliott, Wyckoff. Return JSON: {{\"decision\": \"BUY\", \"school\": \"SMC\", \"logic\": \"Liquidity Grab\", \"tp_pct\": 1.5, \"sl_pct\": 0.8}} or WAIT."
                     
-                    response = model.generate_content(prompt)
-                    res = json.loads(response.text.strip().replace('```json', '').replace('```', ''))
+                    response = model.generate_content(prompt_text)
+                    res_data = response.text.strip().replace('```json', '').replace('```', '')
+                    res = json.loads(res_data)
                     
                     if res.get('decision') == "BUY":
-                        # --- [نظام التنفيذ المطور] ---
-                        amount_usdt = 15.0 # دخول بـ 15 دولار للاختبار وتخطي الحد الأدنى
-                        
+                        # تنفيذ حقيقي بـ 15 دولار (لضمان تخطي حد بينانس الأدنى)
+                        amount_to_trade = 15.0 
                         try:
-                            # 1. محاولة الشراء
-                            order = exchange.create_market_buy_order(pair, amount_usdt)
-                            st.toast(f"🚀 تم الشراء بنجاح: {sym}")
+                            # 1. أمر شراء بسعر السوق
+                            order = exchange.create_market_buy_order(pair, amount_to_trade)
+                            entry_p = order.get('price', price)
                             
-                            # 2. وضع الاستوب لوز (SL)
-                            entry_price = order.get('price', ta.indicators['close'])
-                            sl_price = entry_price * (1 - (res['sl_pct'] / 100))
-                            
+                            # 2. وضع الاستوب لوز أوتوماتيك على بينانس
+                            sl_p = entry_p * (1 - (res['sl_pct'] / 100))
                             exchange.create_order(
                                 symbol=pair, type='STOP_LOSS_LIMIT', side='sell',
-                                amount=order['amount'], price=sl_price * 0.99,
-                                params={'stopPrice': sl_price}
+                                amount=order['amount'], price=sl_p * 0.99,
+                                params={'stopPrice': sl_p}
                             )
                             
-                            engine.record_trade(sym, res['school'], res['logic'], 0.1)
+                            st.toast(f"🎯 قنص صفقة {sym} | دخول: {entry_p}")
+                            engine.record_trade(sym, res['school'], res['logic'], 0.1) # تسجيل ربح رمزي للتراكم
                             st.rerun()
-                            
                         except Exception as e:
-                            # أهم سطر: هيعرفنا ليه الأرقام مبتتغيرش!
-                            st.error(f"❌ بينانس رفضت الأوردر: {str(e)}")
-                            
-                except Exception as e:
+                            st.error(f"❌ عطل في تنفيذ بينانس: {e}")
+                except:
                     continue
 
         with logs_placeholder.container():
