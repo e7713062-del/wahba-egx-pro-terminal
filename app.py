@@ -8,17 +8,17 @@ from datetime import datetime
 from tradingview_ta import TA_Handler, Interval
 
 # =================================================================
-# 1. إعدادات العقل المفكر (AI Brain)
+# 1. إعدادات العقل المفكر (AI Setup)
 # =================================================================
 GEMINI_API_KEY = "AIzaSyAHLshGDTIRhodR1CMAWGP_DH3622aADJQ" 
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
 # =================================================================
-# 2. مخرك تخزين التوصيات (The Ledger)
+# 2. محرك تخزين الصفقات (Sovereign Ledger)
 # =================================================================
 class WahbaSovereignEngine:
-    def __init__(self, db_name="wahba_pro_signals.db"):
+    def __init__(self, db_name="wahba_final_signals.db"):
         self.db_name = db_name
         self._setup_db()
 
@@ -33,56 +33,63 @@ class WahbaSovereignEngine:
         with sqlite3.connect(self.db_name) as conn:
             conn.execute("""INSERT INTO signals (time, symbol, type, school, logic, entry, sl, tp) 
                             VALUES (?,?,?,?,?,?,?,?)""",
-                         (datetime.now().strftime("%Y-%m-%d %H:%M"), symbol, s_type, school, logic, entry, sl, tp))
+                         (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), symbol, s_type, school, logic, entry, sl, tp))
 
 # =================================================================
-# 3. واجهة التحكم (The Command Center)
+# 3. واجهة التحكم (The Master Dashboard)
 # =================================================================
 def main():
-    st.set_page_config(page_title="Wahba Pro Signals", layout="wide", page_icon="🦅")
+    st.set_page_config(page_title="Wahba Sovereign Master", layout="wide", page_icon="🦅")
     engine = WahbaSovereignEngine()
     
-    st.markdown("<h1 style='text-align:center; color:#f3ba2f;'>🦅 WAHBA PRO: DAY & SWING MASTER</h1>", unsafe_allow_html=True)
-    st.sidebar.markdown("### 🛠️ حالة الضبط:")
-    st.sidebar.warning("🚫 Scalping: DISABLED")
-    st.sidebar.success("✅ Day Trading: ACTIVE")
-    st.sidebar.success("✅ Swing Trading: ACTIVE")
+    st.markdown("<h1 style='text-align:center; color:#f3ba2f;'>🦅 WAHBA SOVEREIGN MASTER</h1>", unsafe_allow_html=True)
+    
+    # شريط الحالة الجانبي عشان تطمن إن الكود شغال
+    st.sidebar.header("📡 مراقب الأنظمة")
+    status_box = st.sidebar.empty()
+    price_box = st.sidebar.empty()
+    st.sidebar.divider()
+    st.sidebar.info("الوضع: Day & Swing (Scalping Disabled)")
 
     metrics_placeholder = st.empty()
     signals_placeholder = st.empty()
 
     while True:
+        # تحديث لوحة التحكم
         with metrics_placeholder.container():
             c1, c2, c3 = st.columns(3)
-            c1.metric("الوضع الحالي", "Trend Hunting")
-            c2.metric("المدارس", "Wyckoff / Elliott / VSA")
-            c3.metric("الفريمات", "15m / 1h / 4h")
+            c1.metric("وضع الرادار", "Day / Swing Only")
+            c2.metric("المدارس النشطة", "Wyckoff + Elliott")
+            c3.metric("توقيت النظام", datetime.now().strftime("%H:%M:%S"))
 
-        # مراقبة العملات القوية للسوينج والداي
-        for sym in ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "ADAUSDT"]:
+        # فحص العملات القيادية
+        for sym in ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"]:
             try:
-                # التحليل بيتم على فريمات أكبر (15 دقيقة وساعة) لضمان جودة التوصية
+                # تحديث الحالة للمستخدم
+                status_box.warning(f"🔍 يتم تحليل: {sym}...")
+                
+                # التحليل على فريم الـ 15 دقيقة (بداية الداي تريدنج)
                 handler = TA_Handler(symbol=sym, screener="crypto", exchange="BINANCE", interval=Interval.INTERVAL_15_MINUTES)
                 ta = handler.get_analysis()
                 price = ta.indicators['close']
                 
-                # البرومبت الموجه للـ Day & Swing فقط
+                price_box.success(f"💰 سعر {sym} الحالي: {price}")
+
+                # برومبت القناص الصبور
                 prompt_text = f"""
-                Analyze {sym} at price {price}. RSI={ta.indicators['RSI']}.
-                Ignore all Scalping opportunities.
-                Focus ONLY on:
-                1. Day Trading setups (15m-1h) using Order Blocks & VSA.
-                2. Swing Trading setups (1h-4h) using Wyckoff Accumulation/Distribution or Elliott Wave (3 or 5).
-                
+                Analyze {sym} at {price}. RSI={ta.indicators['RSI']}.
+                Ignore noise. Look for:
+                - Day Trade (15m/1h): Order Blocks or VSA confirmation.
+                - Swing Trade (1h/4h): Wyckoff Accumulation/Spring or Elliott Wave 3.
                 Return JSON ONLY:
                 {{
                     "status": "SIGNAL",
                     "type": "DAY or SWING",
-                    "school": "...",
-                    "logic": "...",
+                    "school": "Specific School",
+                    "logic": "Detailed explanation",
                     "entry": {price},
-                    "sl": "Calculation based on structure",
-                    "tp": "Calculation based on Next Resistance"
+                    "sl": "price minus structural support",
+                    "tp": "price plus next resistance"
                 }} or {{"status": "WAIT"}}
                 """
                 
@@ -90,28 +97,24 @@ def main():
                 res = json.loads(response.text.strip().replace('```json', '').replace('```', ''))
                 
                 if res.get('status') == "SIGNAL":
-                    st.toast(f"🚨 فرصة {res['type']} مكتشفة على {sym}")
                     engine.record_signal(sym, res['type'], res['school'], res['logic'], res['entry'], res['sl'], res['tp'])
-                    st.balloons() # احتفال بسيط بالفرصة الكبيرة
+                    st.toast(f"🚨 فرصة {res['type']} مكتشفة!")
+                    st.balloons()
             except:
                 continue
 
-        # عرض جدول الإشارات الحية
+        # عرض التوصيات
         with signals_placeholder.container():
             st.divider()
+            st.subheader("📜 سجل الصيد الثمين (توصيات حية)")
             with sqlite3.connect(engine.db_name) as conn:
                 df = pd.read_sql_query("SELECT * FROM signals ORDER BY id DESC LIMIT 10", conn)
-                if not df.empty:
-                    st.write("### 📜 توصيات القناص (Day & Swing):")
-                    # تلوين الجدول لتمييز السوينج عن الداي
-                    def color_type(val):
-                        color = '#1f77b4' if val == 'SWING' else '#2ca02c'
-                        return f'background-color: {color}; color: white'
-                    
-                    st.dataframe(df.style.applymap(color_type, subset=['type']))
+                if df.empty:
+                    st.info("النظام يبحث عن فرص قوية حالياً... الصبر هو مفتاح الأرباح في السوينج.")
+                else:
+                    st.table(df)
 
-        # تحديث كل دقيقة لأن السوينج والداي مش محتاجين سرعة السكالبينج
-        time.sleep(60)
+        time.sleep(30) # تحديث كل نصف دقيقة لضمان دقة التحليل
 
 if __name__ == "__main__":
     main()
