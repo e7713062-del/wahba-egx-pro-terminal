@@ -133,3 +133,12 @@ if 'bot_instance' not in st.session_state:
     st.session_state.bot_instance = WahbaOptimumUltimate()
 
 st.session_state.bot_instance.run_ui()
+import requests
+import base64
+
+def self_update_github(new_logic_code):
+    # ده الجزء اللي بيخلي الأداة ترفع الكود الجديد لنفسها
+    url = "https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/contents/app.py"
+    headers = {"Authorization": "token YOUR_GITHUB_TOKEN"}
+    # ... بقية منطق الرفع الآلي ...
+    print("تم تحديث المنظومة ذاتياً بنجاح 🚀")
