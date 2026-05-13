@@ -142,3 +142,15 @@ def self_update_github(new_logic_code):
     headers = {"Authorization": "token YOUR_GITHUB_TOKEN"}
     # ... بقية منطق الرفع الآلي ...
     print("تم تحديث المنظومة ذاتياً بنجاح 🚀")
+import requests
+
+def apply_ai_updates(new_code):
+    # كود بيربط بين كلامنا وبين الـ Repository بتاعك
+    token = st.secrets["GH_TOKEN"]
+    repo = "Mustafa/Wahba-EGX" # مثال لاسم الريبو بتاعك
+    path = "app.py"
+    
+    # عملية التحديث التلقائي على GitHub
+    # بمجرد ما الـ AI يولد الكود، بيترفع هنا أوتوماتيك
+    # والـ Auto-deploy بيحدث الموقع في ثواني
+    
