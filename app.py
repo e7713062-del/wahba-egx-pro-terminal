@@ -16,7 +16,7 @@ st.set_page_config(page_title="Wahba Intelligence", layout="wide", initial_sideb
 # --- 2. التصميم المؤسسي المطور ---
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght=400;700;900&display=swap');
 * { font-family: 'Tajawal', sans-serif; }
 .stApp { background-color: #000000; color: #ffffff; }
 .nav-bar { text-align: center; padding: 25px; background: linear-gradient(180deg, #111 0%, #000 100%); border-bottom: 2px solid #d4af37; margin-bottom: 30px; }
@@ -31,9 +31,12 @@ st.markdown("""
 .stButton>button { background: #d4af37 !important; color: #000 !important; font-weight: 900 !important; border-radius: 10px !important; height: 50px !important; width: 100% !important; border: none !important; transition: 0.3s; }
 .stButton>button:hover { background: #fff !important; transform: scale(1.02); }
 .footer-box { margin-top: 80px; padding: 40px; text-align: center; border-top: 1px solid #1a1a1a; color: #666; font-size: 13px; }
-.news-card { background: #050505; border: 1px solid #111; border-radius: 10px; padding: 15px; margin-bottom: 15px; border-right: 3px solid #666; direction: rtl; text-align: right; }
-.news-title { color: #fff; font-weight: bold; font-size: 16px; text-decoration: none; }
-.news-title:hover { color: #d4af37; }
+/* استايل صندوق الأخبار المدمج جوه الكارت */
+.stock-news-box { background: #111111; border-right: 4px solid #d4af37; padding: 15px; margin-top: 15px; border-radius: 6px; direction: rtl; text-align: right; }
+.news-badge { display: inline-block; padding: 2px 8px; font-size: 11px; font-weight: bold; border-radius: 4px; margin-bottom: 8px; }
+.badge-pos { background: #004d26; color: #00ff88; }
+.badge-neg { background: #4d0011; color: #ff3366; }
+.badge-neu { background: #2b2b2b; color: #aaaaaa; }
 /* تحسين عرض الـ Metrics */
 [data-testid="stMetricValue"] { color: #fff !important; font-size: 18px !important; }
 [data-testid="stMetricLabel"] { color: #d4af37 !important; }
@@ -44,6 +47,20 @@ st.markdown("""
     <p style="color:#666; font-size:12px; margin-top:5px;">PREMIUM ALGORITHMIC TRADING TERMINAL</p>
 </div>
 """, unsafe_allow_html=True)
+
+# --- قاموس ترجمة الرموز لأسماء الشركات باللغة العربية للبحث الدقيق في الأخبار ---
+COMPANY_MAPPING = {
+    "COMI": ["التجاري الدولي", "CIB", "comi"],
+    "FWRY": ["فوري", "fwry"],
+    "TMGH": ["طلعت مصطفى", "قابضة", "tmgh"],
+    "SWDY": ["السويدي", "swdy"],
+    "EKHO": ["الكويتية المصرية", "ekho"],
+    "ABUK": ["أبو قير", " الأسمدة", "abuk"],
+    "ETEL": ["المصرية للاتصالات", "we", "etel"],
+    "AMOC": ["أموك", "amoc"],
+    "HRHO": ["إي في جي", "هيرميس", "hrho"],
+    "ESRS": ["حديد عز", "esrs"]
+}
 
 # --- 3. محرك البيانات الاستراتيجي ---
 @st.cache_data(ttl=86400)
@@ -56,11 +73,36 @@ def fetch_egx_list(date_key):
     except:
         return ["COMI", "FWRY", "TMGH", "SWDY", "EKHO", "ABUK", "ETEL", "AMOC", "HRHO", "ESRS"]
 
+# دالة لتحليل محتوى الخبر وتحديد التأثير رقمياً واقتراح حركة سريعة
+def analyze_news_sentiment(title):
+    pos_words = ["أرباح", "نمو", "ارتفاع", "استحواذ", "صعود", "توزيعات", "إيجابي", "زيادة", "شراء"]
+    neg_words = ["تراجع", "خسائر", "انخفاض", "هبوط", "بيع", "تأجيل", "غرامة", "سلبي", "انكماش"]
+    
+    score = 0
+    for word in pos_words:
+        if word in title: score += 1
+    for word in neg_words:
+        if word in title: score -= 1
+        
+    if score > 0:
+        return "badge-pos", "إيجابي (متحفز للسيولة)", "تأكيد إشارة الشراء الفنية."
+    elif score < 0:
+        return "badge-neg", "سلبي (حذر من ضغط بيعي)", "توخي الحذر، الخبر قد يضعف العزم الفني."
+    else:
+        return "badge-neu", "محايد (تأثير ضعيف)", "الاعتماد كلياً على الإشارات الفنية للمؤشرات."
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def run_strategic_scan(date_key):
     symbols = fetch_egx_list(date_key)
     results = []
     
+    # سحب موجز الأخبار دفعة واحدة لتوفير الوقت والأداء
+    try:
+        feed = feedparser.parse("https://sa.investing.com/rss/news_286.rss")
+        all_news = feed.entries
+    except:
+        all_news = []
+        
     status_text = st.empty()
     p_bar = st.progress(0)
     
@@ -72,7 +114,7 @@ def run_strategic_scan(date_key):
             ind = analysis.indicators
             rec = analysis.summary["RECOMMENDATION"]
             
-            # خوارزمية تسجيل النقاط القديمة
+            # خوارزمية تسجيل النقاط (الأصلية كاملة)
             score = 0
             if "STRONG_BUY" in rec: score += 5
             elif "BUY" in rec: score += 3
@@ -84,7 +126,7 @@ def run_strategic_scan(date_key):
             pivot = ind.get("Pivot.M.Classic.Middle")
             if close and pivot and close > pivot: score += 2
             
-            # تحديد نوع التداول
+            # تحديد نوع التداول بناءً على السيولة والتذبذب
             vol = ind.get("volume")
             avg_vol = ind.get("average_volume_10d")
             vol_ratio = (vol / avg_vol) if (vol and avg_vol) else 1
@@ -92,7 +134,7 @@ def run_strategic_scan(date_key):
             
             t_type = "⚡ DAY TRADING" if (vol_ratio > 1.4 or abs(change) > 3) else "🌊 SWING"
             
-            # --- ضبط الحساسية المطور (Early Trend) بدون حذف أو تعديل القديم ---
+            # --- تعديل الحساسية الذكي (Early Trend) ---
             if close and pivot and rsi and vol_ratio:
                 is_fresh_rsi = 40 <= rsi <= 60
                 is_crossing_pivot = (pivot * 0.99) <= close <= (pivot * 1.02)
@@ -102,11 +144,27 @@ def run_strategic_scan(date_key):
                     score += 2  
                     t_type = "🚀 EARLY TREND"
             
+            # 🔍 ربط الأخبار الذكي الخاص بالسهم الحالي
+            related_news = None
+            search_keywords = COMPANY_MAPPING.get(sym, [sym])
+            for news in all_news:
+                if any(keyword.lower() in news.title.lower() for keyword in search_keywords):
+                    badge_class, sentiment, logic = analyze_news_sentiment(news.title)
+                    related_news = {
+                        "title": news.title,
+                        "link": news.link,
+                        "badge": badge_class,
+                        "sentiment": sentiment,
+                        "logic": logic
+                    }
+                    break # نكتفي بآخر خبر مباشر ومؤثر للسهم
+            
             results.append({
                 "Symbol": sym, "Price": close, "Score": score,
                 "S1": ind.get("Pivot.M.Classic.S1"), "S2": ind.get("Pivot.M.Classic.S2"),
                 "P": pivot, "R1": ind.get("Pivot.M.Classic.R1"),
-                "R2": ind.get("Pivot.M.Classic.R2"), "Signal": rec.replace("_", " "), "Type": t_type
+                "R2": ind.get("Pivot.M.Classic.R2"), "Signal": rec.replace("_", " "), "Type": t_type,
+                "News": related_news
             })
         except: continue
         p_bar.progress((i + 1) / len(symbols))
@@ -114,15 +172,6 @@ def run_strategic_scan(date_key):
     p_bar.empty()
     status_text.empty()
     return pd.DataFrame(results)
-
-# --- دالة سحب الأخبار الحية (منفصلة بره المحرك الفني) ---
-def fetch_egx_news():
-    try:
-        feed_url = "https://sa.investing.com/rss/news_286.rss"
-        feed = feedparser.parse(feed_url)
-        return feed.entries[:5]  
-    except:
-        return []
 
 # --- 4. وظائف العرض ---
 def display_stock_card(row):
@@ -155,6 +204,24 @@ def display_stock_card(row):
         cols[1].metric("Pivot (ارتكاز)", f"{row['P']:.2f}" if pd.notnull(row['P']) else "N/A")
         cols[2].metric("R1 (مقاومة)", f"{row['R1']:.2f}" if pd.notnull(row['R1']) else "N/A")
         cols[3].metric("R2 (هدف)", f"{row['R2']:.2f}" if pd.notnull(row['R2']) else "N/A")
+        
+        # 📰 عرض الخبر المخصص والتحليل الرقمي التابع له داخل كارت السهم نفسه
+        if row['News']:
+            n = row['News']
+            st.markdown(f"""
+            <div class="stock-news-box">
+                <span class="news-badge {n['badge']}">{n['sentiment']}</span>
+                <div><strong>📰 آخر خبر مباشر:</strong> <a href="{n['link']}" target="_blank" style="color:#fff; text-decoration:none;">{n['title']}</a></div>
+                <div style="color:#d4af37; font-size:12px; margin-top:5px; font-weight:bold;">💡 التحليل الأساسي المدمج: {n['logic']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="stock-news-box" style="border-right-color:#333;">
+                <div style="color:#666; font-size:12px;">ℹ️ رادار الأخبار: لا توجد أخبار جوهرية حركت السهم اليوم، الحركة الحالية فنية بالكامل.</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
         st.markdown("<div style='margin-bottom:30px;'></div>", unsafe_allow_html=True)
 
 # --- 5. منطق التشغيل ---
@@ -163,7 +230,7 @@ st.write(f"📅 **تاريخ التقرير:** {today_key} | 🕒 **توقيت �
 col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
 with col_btn2:
     if st.button('🚀 تحديث وتحليل بيانات السوق الآن'):
-        with st.spinner("جاري فحص الخوارزميات..."):
+        with st.spinner("جاري فحص الخوارزميات الفنية والأساسية..."):
             st.session_state.final_report = run_strategic_scan(today_key)
 
 if 'final_report' in st.session_state:
@@ -172,37 +239,30 @@ if 'final_report' in st.session_state:
     if not df.empty:
         df = df.sort_values(by="Score", ascending=False)
 
-        # فلترة الأسهم ذات السكور العالي فقط (>= 8)
-        high_score_df = df[df['Score'] >= 8]
-        
-        if not high_score_df.empty:
-            st.markdown('<div class="section-header">⚜️ الفرص الذهبية المكتشفة (High Score Only)</div>', unsafe_allow_html=True)
-            for _, row in high_score_df.iterrows(): 
-                display_stock_card(row)
-        else:
-            st.warning("⚠️ لا توجد أسهم حققت سكور عالي (8 أو أكثر) في فحص اليوم.")
+        # ⚜️ التصنيف الأول: النخبة (الأصلي)
+        t1 = df[df['Score'] >= 8]
+        if not t1.empty:
+            st.markdown('<div class="section-header">⚜️ أسهم النخبة (إشارات قوية + الأخبار المدمجة)</div>', unsafe_allow_html=True)
+            for _, row in t1.iterrows(): display_stock_card(row)
+
+        # 💎 التصنيف الثاني: المراقبة (الأصلي)
+        t2 = df[(df['Score'] >= 5) & (df['Score'] < 8)]
+        if not t2.empty:
+            st.markdown('<div class="section-header">💎 أسهم تحت المراقبة (إشارات إيجابية + الأخبار المدمجة)</div>', unsafe_allow_html=True)
+            for _, row in t2.iterrows(): display_stock_card(row)
+
+        # 📊 التصنيف الثالث: باقي تحركات السوق الـ Expander (الأصلي)
+        t3 = df[df['Score'] < 5]
+        if not t3.empty:
+            with st.expander("📊 استعراض باقي تحركات السوق"):
+                for _, row in t3.iterrows(): display_stock_card(row)
     else:
         st.error("لم يتم العثور على بيانات. يرجى المحاولة لاحقاً.")
-
-# --- قسم الأخبار الحية في الأسفل ---
-st.markdown('<div class="section-header">📰 رادار الأخبار الحية والشركات (EGX Radar)</div>', unsafe_allow_html=True)
-news_entries = fetch_egx_news()
-
-if news_entries:
-    for item in news_entries:
-        st.markdown(f"""
-        <div class="news-card">
-            <a class="news-title" href="{item.link}" target="_blank">🔹 {item.title}</a>
-            <div style="color: #666; font-size: 11px; margin-top: 5px;">⏰ تم النشر: {item.published}</div>
-        </div>
-        """, unsafe_allow_html=True)
-else:
-    st.info("🔄 جاري تحديث موجز الأخبار الاقتصادي للبورصة...")
 
 st.markdown("""
 <div class="footer-box">
     <p style="font-weight:bold; color:#d4af37; letter-spacing:1px;">WAHBA INTELLIGENCE • INSTITUTIONAL DIVISION</p>
-    <p>تحذير مخاطر: المعلومات المقدمة هي تحليل رقمي فني ولا تعتبر توصية مباشرة بالشراء أو البيع.</p>
+    <p>تحذير مخاطر: المعلومات المقدمة هي تحليل رقمي فني وأساسي ولا تعتبر توصية مباشرة بالشراء أو البيع.</p>
     <p>© 2026 جميع الحقوق محفوظة</p>
 </div>
 """, unsafe_allow_html=True)
