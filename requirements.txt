@@ -1,4 +1,5 @@
+streamlit
 tradingview-ta
 pandas
 requests
-openpyxl
+pytz
