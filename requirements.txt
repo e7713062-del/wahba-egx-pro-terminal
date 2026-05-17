@@ -1,4 +1,4 @@
-streamlit
-ccxt
+tradingview-ta
 pandas
-google-generativeai
+requests
+openpyxl
