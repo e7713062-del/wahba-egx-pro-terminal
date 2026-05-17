@@ -52,6 +52,7 @@ def fetch_egx_list(date_key):
         return sorted(list(set([item['s'].split(':')[1] for item in res['data'] if not item['s'].split(':')[1].isdigit()])))
     except:
         return ["COMI", "FWRY", "TMGH", "SWDY", "EKHO", "ABUK", "ETEL", "AMOC", "HRHO", "ESRS"]
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def run_strategic_scan(date_key):
     symbols = fetch_egx_list(date_key)
@@ -68,7 +69,7 @@ def run_strategic_scan(date_key):
             ind = analysis.indicators
             rec = analysis.summary["RECOMMENDATION"]
             
-            # خوارزمية تسجيل النقاط (Scoring Algorithm)
+            # خوارزمية تسجيل النقاط (Scoring Algorithm القديم)
             score = 0
             if "STRONG_BUY" in rec: score += 5
             elif "BUY" in rec: score += 3
@@ -88,19 +89,19 @@ def run_strategic_scan(date_key):
             
             t_type = "⚡ DAY TRADING" if (vol_ratio > 1.4 or abs(change) > 3) else "🌊 SWING"
             
-            # --- إضافة مبدأ بداية التريند (Early Trend Detection) من غير تعديل القديم ---
+            # --- تعديل الحساسية الذكي (Early Trend) بدون حذف أو تعديل القديم ---
             if close and pivot and rsi and vol_ratio:
-                # 1. السهم لسه مخترق الارتكاز وبمسافة قريبة جداً (بداية اختراق)
-                is_near_pivot = pivot < close <= (pivot * 1.03)
-                # 2. الـ RSI بدأ يعطي إيجابية صعود قوية بس لسه منفوخش (في أول التريند)
-                is_fresh_rsi = 50 <= rsi <= 60
-                # 3. صانع سوق بدأ يضخ سيولة أعلى من المعتاد
-                is_heavy_volume = vol_ratio > 1.1
+                # 1. حساسية الـ RSI: لقط الأسهم اللي بتلف من تحت (بين 40 و 60)
+                is_fresh_rsi = 40 <= rsi <= 60
+                # 2. حساسية الارتكاز: السهم لسه قريب من الارتكاز (أعلى منه بـ 2% أو تحتيه بـ 1%) بيجمع عزم
+                is_crossing_pivot = (pivot * 0.99) <= close <= (pivot * 1.02)
+                # 3. حساسية السيولة: الفوليوم بدأ يسخن أعلى من المعتاد (أكبر من 1.05)
+                is_volume_heating = vol_ratio > 1.05
                 
-                # لو الشروط دي متوافقة، السهم ده في بداية تريند حقيقي ونديله بونص نقاط
-                if is_near_pivot and is_fresh_rsi and is_heavy_volume:
-                    score += 3
-                    t_type = "🚀 EARLY TREND" # تغيير التاج ليوضح اقتناص الفرصة
+                # إذا تحقق شرطين من الثلاثة، السهم ده حساسيته عالية ومبشر
+                if (is_fresh_rsi and is_crossing_pivot) or (is_fresh_rsi and is_volume_heating):
+                    score += 2  # إضافة مرنة لرفع الترتيب
+                    t_type = "🚀 EARLY TREND"
             
             results.append({
                 "Symbol": sym, "Price": close, "Score": score,
