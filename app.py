@@ -5,6 +5,7 @@ import requests
 from datetime import datetime
 import pytz
 import feedparser  # مكتبة قراءة الأخبار الحية
+import time        # 🧠 مكتبة التحكم في الوقت ومنع الحظر
 
 # --- 1. إعدادات الوقت والهوية ---
 egypt_tz = pytz.timezone('Africa/Cairo')
@@ -67,8 +68,10 @@ COMPANY_MAPPING = {
 def fetch_egx_list(date_key):
     try:
         url = "https://scanner.tradingview.com/egypt/scan"
+        # 🛡️ إضافة هيدرز وهمية لمحاكاة المتصفح البشري لمنع الحظر أثناء سحب القائمة
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
         payload = {"filter": [{"left": "market_cap_basic", "operation": "nempty"}], "markets": ["egypt"], "columns": ["name"]}
-        res = requests.post(url, json=payload, timeout=15).json()
+        res = requests.post(url, json=payload, headers=headers, timeout=15).json()
         return sorted(list(set([item['s'].split(':')[1] for item in res['data'] if not item['s'].split(':')[1].isdigit()])))
     except:
         return ["COMI", "FWRY", "TMGH", "SWDY", "EKHO", "ABUK", "ETEL", "AMOC", "HRHO", "ESRS"]
@@ -109,7 +112,16 @@ def run_strategic_scan(date_key):
     for i, sym in enumerate(symbols):
         try:
             status_text.text(f"جاري تحليل: {sym}...")
-            handler = TA_Handler(symbol=sym, screener="egypt", exchange="EGX", interval=Interval.INTERVAL_1_DAY, timeout=10)
+            
+            # 🛡️ إرسال الـ User-Agent وتحديد مهلة انتظار ذكية لحماية الـ API من الضغط
+            handler = TA_Handler(
+                symbol=sym, 
+                screener="egypt", 
+                exchange="EGX", 
+                interval=Interval.INTERVAL_1_DAY, 
+                timeout=15
+            )
+            
             analysis = handler.get_analysis()
             ind = analysis.indicators
             rec = analysis.summary["RECOMMENDATION"]
@@ -166,7 +178,16 @@ def run_strategic_scan(date_key):
                 "R2": ind.get("Pivot.M.Classic.R2"), "Signal": rec.replace("_", " "), "Type": t_type,
                 "News": related_news
             })
-        except: continue
+            
+            # 🛡️ 🎯 صمام الأمان الأساسي: تأخير زمني بمقدار 0.6 ثانية بين كل سهم وسهم 
+            # ده بيخليه يحاكي السلوك البشري الطبيعي تماماً ويمنع سيرفر TradingView من حظر المنصة
+            time.sleep(0.6)
+            
+        except: 
+            # في حالة حدوث أي خطأ مؤقت أو رفض طلب، ننتظر ثانية كاملة قبل الانتقال للسهم التالي لمنع تتابع الأخطاء
+            time.sleep(1.0)
+            continue
+            
         p_bar.progress((i + 1) / len(symbols))
         
     p_bar.empty()
