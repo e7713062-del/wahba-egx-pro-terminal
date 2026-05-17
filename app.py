@@ -4,6 +4,7 @@ import pandas as pd
 import requests
 from datetime import datetime
 import pytz
+import feedparser  # مكتبة قراءة الأخبار الحية
 
 # --- 1. إعدادات الوقت والهوية ---
 egypt_tz = pytz.timezone('Africa/Cairo')
@@ -30,6 +31,9 @@ st.markdown("""
 .stButton>button { background: #d4af37 !important; color: #000 !important; font-weight: 900 !important; border-radius: 10px !important; height: 50px !important; width: 100% !important; border: none !important; transition: 0.3s; }
 .stButton>button:hover { background: #fff !important; transform: scale(1.02); }
 .footer-box { margin-top: 80px; padding: 40px; text-align: center; border-top: 1px solid #1a1a1a; color: #666; font-size: 13px; }
+.news-card { background: #050505; border: 1px solid #111; border-radius: 10px; padding: 15px; margin-bottom: 15px; border-right: 3px solid #666; direction: rtl; text-align: right; }
+.news-title { color: #fff; font-weight: bold; font-size: 16px; text-decoration: none; }
+.news-title:hover { color: #d4af37; }
 /* تحسين عرض الـ Metrics */
 [data-testid="stMetricValue"] { color: #fff !important; font-size: 18px !important; }
 [data-testid="stMetricLabel"] { color: #d4af37 !important; }
@@ -48,7 +52,6 @@ def fetch_egx_list(date_key):
         url = "https://scanner.tradingview.com/egypt/scan"
         payload = {"filter": [{"left": "market_cap_basic", "operation": "nempty"}], "markets": ["egypt"], "columns": ["name"]}
         res = requests.post(url, json=payload, timeout=15).json()
-        # تصفية الرموز لضمان الحصول على أسماء الشركات فقط
         return sorted(list(set([item['s'].split(':')[1] for item in res['data'] if not item['s'].split(':')[1].isdigit()])))
     except:
         return ["COMI", "FWRY", "TMGH", "SWDY", "EKHO", "ABUK", "ETEL", "AMOC", "HRHO", "ESRS"]
@@ -69,19 +72,19 @@ def run_strategic_scan(date_key):
             ind = analysis.indicators
             rec = analysis.summary["RECOMMENDATION"]
             
-            # خوارزمية تسجيل النقاط (Scoring Algorithm القديم)
+            # خوارزمية تسجيل النقاط القديمة
             score = 0
             if "STRONG_BUY" in rec: score += 5
             elif "BUY" in rec: score += 3
             
             rsi = ind.get("RSI")
-            if rsi and 45 <= rsi <= 65: score += 3 # منطقة تجميع مثالية
+            if rsi and 45 <= rsi <= 65: score += 3 
             
             close = ind.get("close")
             pivot = ind.get("Pivot.M.Classic.Middle")
             if close and pivot and close > pivot: score += 2
             
-            # تحديد نوع التداول بناءً على السيولة والتذبذب
+            # تحديد نوع التداول
             vol = ind.get("volume")
             avg_vol = ind.get("average_volume_10d")
             vol_ratio = (vol / avg_vol) if (vol and avg_vol) else 1
@@ -89,18 +92,14 @@ def run_strategic_scan(date_key):
             
             t_type = "⚡ DAY TRADING" if (vol_ratio > 1.4 or abs(change) > 3) else "🌊 SWING"
             
-            # --- تعديل الحساسية الذكي (Early Trend) بدون حذف أو تعديل القديم ---
+            # --- ضبط الحساسية المطور (Early Trend) بدون حذف أو تعديل القديم ---
             if close and pivot and rsi and vol_ratio:
-                # 1. حساسية الـ RSI: لقط الأسهم اللي بتلف من تحت (بين 40 و 60)
                 is_fresh_rsi = 40 <= rsi <= 60
-                # 2. حساسية الارتكاز: السهم لسه قريب من الارتكاز (أعلى منه بـ 2% أو تحتيه بـ 1%) بيجمع عزم
                 is_crossing_pivot = (pivot * 0.99) <= close <= (pivot * 1.02)
-                # 3. حساسية السيولة: الفوليوم بدأ يسخن أعلى من المعتاد (أكبر من 1.05)
                 is_volume_heating = vol_ratio > 1.05
                 
-                # إذا تحقق شرطين من الثلاثة، السهم ده حساسيته عالية ومبشر
                 if (is_fresh_rsi and is_crossing_pivot) or (is_fresh_rsi and is_volume_heating):
-                    score += 2  # إضافة مرنة لرفع الترتيب
+                    score += 2  
                     t_type = "🚀 EARLY TREND"
             
             results.append({
@@ -115,6 +114,15 @@ def run_strategic_scan(date_key):
     p_bar.empty()
     status_text.empty()
     return pd.DataFrame(results)
+
+# --- دالة سحب الأخبار الحية (منفصلة بره المحرك الفني) ---
+def fetch_egx_news():
+    try:
+        feed_url = "https://sa.investing.com/rss/news_286.rss"
+        feed = feedparser.parse(feed_url)
+        return feed.entries[:5]  
+    except:
+        return []
 
 # --- 4. وظائف العرض ---
 def display_stock_card(row):
@@ -137,7 +145,6 @@ def display_stock_card(row):
         </div>
         """, unsafe_allow_html=True)
         
-        # مؤشر القوة داخل النطاق السعري
         if pd.notnull(row['S2']) and pd.notnull(row['R2']) and row['R2'] > row['S2']:
             val = max(0, min(100, ((row['Price'] - row['S2']) / (row['R2'] - row['S2'])) * 100))
             st.markdown(f"<div style='text-align:right; font-size:11px; color:#d4af37; margin-bottom:5px;'>القوة الشرائية داخل النطاق</div>", unsafe_allow_html=True)
@@ -163,28 +170,34 @@ if 'final_report' in st.session_state:
     df = st.session_state.final_report
     
     if not df.empty:
-        # ترتيب النتائج حسب النتيجة الأعلى
         df = df.sort_values(by="Score", ascending=False)
 
-        # التصنيف الأول: النخبة
-        t1 = df[df['Score'] >= 8]
-        if not t1.empty:
-            st.markdown('<div class="section-header">⚜️ أسهم النخبة (إشارات قوية)</div>', unsafe_allow_html=True)
-            for _, row in t1.iterrows(): display_stock_card(row)
-
-        # التصنيف الثاني: المراقبة
-        t2 = df[(df['Score'] >= 5) & (df['Score'] < 8)]
-        if not t2.empty:
-            st.markdown('<div class="section-header">💎 أسهم تحت المراقبة (إشارات إيجابية)</div>', unsafe_allow_html=True)
-            for _, row in t2.iterrows(): display_stock_card(row)
-
-        # التصنيف الثالث: السوق العام
-        t3 = df[df['Score'] < 5]
-        if not t3.empty:
-            with st.expander("📊 استعراض باقي تحركات السوق"):
-                for _, row in t3.iterrows(): display_stock_card(row)
+        # فلترة الأسهم ذات السكور العالي فقط (>= 8)
+        high_score_df = df[df['Score'] >= 8]
+        
+        if not high_score_df.empty:
+            st.markdown('<div class="section-header">⚜️ الفرص الذهبية المكتشفة (High Score Only)</div>', unsafe_allow_html=True)
+            for _, row in high_score_df.iterrows(): 
+                display_stock_card(row)
+        else:
+            st.warning("⚠️ لا توجد أسهم حققت سكور عالي (8 أو أكثر) في فحص اليوم.")
     else:
         st.error("لم يتم العثور على بيانات. يرجى المحاولة لاحقاً.")
+
+# --- قسم الأخبار الحية في الأسفل ---
+st.markdown('<div class="section-header">📰 رادار الأخبار الحية والشركات (EGX Radar)</div>', unsafe_allow_html=True)
+news_entries = fetch_egx_news()
+
+if news_entries:
+    for item in news_entries:
+        st.markdown(f"""
+        <div class="news-card">
+            <a class="news-title" href="{item.link}" target="_blank">🔹 {item.title}</a>
+            <div style="color: #666; font-size: 11px; margin-top: 5px;">⏰ تم النشر: {item.published}</div>
+        </div>
+        """, unsafe_allow_html=True)
+else:
+    st.info("🔄 جاري تحديث موجز الأخبار الاقتصادي للبورصة...")
 
 st.markdown("""
 <div class="footer-box">
