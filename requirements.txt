@@ -3,3 +3,4 @@ tradingview-ta
 pandas
 requests
 pytz
+feedparser
