@@ -52,7 +52,6 @@ def fetch_egx_list(date_key):
         return sorted(list(set([item['s'].split(':')[1] for item in res['data'] if not item['s'].split(':')[1].isdigit()])))
     except:
         return ["COMI", "FWRY", "TMGH", "SWDY", "EKHO", "ABUK", "ETEL", "AMOC", "HRHO", "ESRS"]
-
 @st.cache_data(ttl=3600, show_spinner=False)
 def run_strategic_scan(date_key):
     symbols = fetch_egx_list(date_key)
@@ -137,7 +136,7 @@ def display_stock_card(row):
         </div>
         """, unsafe_allow_html=True)
         
-        # مؤشنر القوة داخل النطاق السعري
+        # مؤشر القوة داخل النطاق السعري
         if pd.notnull(row['S2']) and pd.notnull(row['R2']) and row['R2'] > row['S2']:
             val = max(0, min(100, ((row['Price'] - row['S2']) / (row['R2'] - row['S2'])) * 100))
             st.markdown(f"<div style='text-align:right; font-size:11px; color:#d4af37; margin-bottom:5px;'>القوة الشرائية داخل النطاق</div>", unsafe_allow_html=True)
